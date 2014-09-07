@@ -1,0 +1,49 @@
+/* start by making sure that test.txt and bank.txt is on the desktop*/
+
+PROC IMPORT OUT= WORK.test 
+            DATAFILE= "C:\Users\cswitzer\Desktop\test.txt" 
+            DBMS=TAB REPLACE;
+     GETNAMES=YES;
+     DATAROW=2; 
+RUN;
+
+PROC FREQ DATA=work.test;
+   TABLES gender hw_grade;
+RUN;
+
+PROC MEANS DATA = work.test MAXDEC = 2; 
+   VAR exam1 exam2;
+RUN; 
+/* this is a comment */
+DATA work.test_new; /* work with data in a data block
+			we're making a new dataset called work.test_new*/
+	SET work.test;
+	final = (exam1 + exam2)/2; 
+RUN;
+
+DATA work.test_new; /* work with data in a data block
+			we're making a new dataset called work.test_new*/
+	SET work.test;
+	final = (exam1 + exam2)/2; 
+	IF (final >= 0 & final < 65) THEN grade = "F"; 
+	ELSE IF final >= 65 & final < 75 THEN grade = "C"; 
+	ELSE IF final >= 75 & final < 85 THEN grade = "B"; 
+	ELSE IF final >= 85 & final < 100 THEN grade = "A"; 
+RUN;
+/* Save output of the following blocks as html file*/
+ODS HTML PATH = "C:\Users\cswitzer\Desktop" BODY = "test_summary.html"; 
+PROC FREQ DATA=work.test_new;
+   TABLES gender hw_grade grade;
+RUN;
+
+PROC MEANS DATA = work.test_new MAXDEC = 2; 
+   VAR exam1 exam2 final;
+RUN; 
+ODS HTML Close; 
+/* end save html*/
+
+/* save a dataset */
+LIBNAME myplace "C:\Users\cswitzer\Desktop\TEMP"; /* defining a directory */
+DATA myplace.test_new;
+   SET work.test_new;
+RUN;
