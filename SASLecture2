@@ -1,0 +1,141 @@
+LIBNAME myplace "C:\Users\cswitzer\Desktop\TEMP"; /*creates a label for a pathname*/
+
+/* for technical reasons, on Harvard FAS lab machines,
+must choose the tab
+"Microsoft Excel Workbook on PC Files Server"
+rather than simply
+"Microsoft Excel Workbook" when using Import Wizard */
+
+PROC IMPORT OUT= WORK.bank 
+            DATAFILE= "C:\Users\sfinch\Desktop\bank.xls" 
+            DBMS=EXCELCS REPLACE;
+     RANGE="bankdata"; 
+     SCANTEXT=YES;
+     USEDATE=YES;
+     SCANTIME=YES;
+RUN;
+
+PROC CONTENTS DATA=work.bank;
+RUN;
+
+/* default listing of variable names is alphabetical;
+    to list them in order of their position, insert VARNUM */
+
+PROC CONTENTS DATA=work.bank VARNUM;
+RUN;
+
+PROC FREQ DATA=work.bank;
+   TABLES gender;
+PROC MEANS DATA=work.bank;
+   VAR salary;
+RUN;
+
+/* note: 2 PROC statements, but only 1 RUN statement */
+/* see pp. 5 & 10 for RUN info: more a matter of style */
+
+PROC MEANS DATA=work.bank;
+   BY gender;
+   VAR salary;
+RUN;
+
+/* fails!  why? */
+/* fix the above and re-run */
+
+PROC SORT DATA=work.bank OUT=work.bank2;
+   BY gender;
+PROC MEANS DATA=work.bank2;
+   BY gender;
+   VAR salary;
+RUN;
+ 
+
+/* sorting beforehand is required for this to work! */
+
+/* in the following, "cat" stands for "category" */
+
+DATA work.bank3;
+   SET work.bank2;
+   If educ>0 & educ<12 THEN educat=1;
+   ELSE IF educ>=12 & educ<=15 THEN educat=2;
+   ELSE IF educ>15 THEN educat=3;
+RUN;
+
+PROC SORT DATA=work.bank3 OUT=work.bank4; /*makes a new dataset called work.bank4*/
+   BY educat;
+PROC MEANS DATA=work.bank4;
+   BY educat;
+   VAR salary;
+RUN;
+
+PROC FREQ DATA=work.bank4;
+   TABLES educat * gender;
+RUN;
+
+/* unsatisfactory table: meaning of "educat" values 1,2,3
+    doesn't appear in our crosstabs */
+/* also want "m" & "f" to be written out fully */
+/* why does the word "gender" appear twice? (bug?) */
+/* give the table a title as well! */
+/* make improvements and rerun */
+
+PROC FORMAT;
+   VALUE degree 1="no HS" 2="no BA" 3=">=BA";
+   VALUE $sex 'm'='male' 'f'='female';
+RUN;
+
+ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP\" BODY="bank_crosstab.html";
+PROC FREQ DATA=work.bank4;
+   TABLES educat * gender;
+   FORMAT educat degree. /* format educat, according to degree*/
+                gender $sex.; /*format gender according to sex*/
+   LABEL gender=;
+   TITLE "Cross-tabulation of educational level with gender";
+RUN;
+ODS HTML CLOSE;
+
+/* see pp. 77-81 & 391-392 for info on PROC FORMAT */
+
+/* how to compute the age of each employee? */
+
+/* adds new columns to the dataset, work.bank4*/
+DATA work.bank4;
+   SET work.bank4;
+   dob=bdate; /*defining a new variable -- will be a new column*/
+   tod=today(); /*output of today() is today's date*/
+   age=(tod-dob)/365.25;
+   FORMAT age F8.2; /* formats the age column -- 2 sig figs, F=float, 8 means 8 digits*/
+RUN;
+
+/* absurd number of digits to right of decimal
+    point given if FORMAT statement isn't made */
+
+ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP\" BODY="age_histogram.html";
+PROC UNIVARIATE DATA=work.bank4;
+   VAR age;
+   HISTOGRAM age;
+RUN;
+
+/* much more information than PROC MEANS */
+/* wrong title!  carry-over from earlier table */
+/* re-run with nicer plot, but don't need printout */
+
+PROC UNIVARIATE DATA=work.bank4 NOPRINT;
+   VAR age;
+   HISTOGRAM age / CFILL=ltgray;
+   INSET n = 'Number of employees' / POS=ne;
+   TITLE 'Histogram of ages';
+RUN;
+ODS HTML CLOSE;
+
+/* export as PNG image: easily converted to PDF or JPG */
+
+
+/* creates a new copy of bank4 -- you can just open it up and pick up where
+you left off*/
+DATA myplace.bank_new;
+   SET work.bank4;
+RUN;
+
+/* the irritating PROC SORT ... BY GENDER ... 
+PROC MEANS ... BY GENDER can be replaced by
+PROC MEANS ... CLASS GENDER: see pp. 41-43 */
