@@ -1,0 +1,109 @@
+/*define library names & formatting variables at front (for clarity)*/
+
+LIBNAME myplace "C:\Users\cswitzer\Desktop\TEMP";
+PROC FORMAT;
+   VALUE degree 1="no HS" 2="no BA" 3=">=BA";
+   VALUE $sex 'm'='male' 'f'='female';
+RUN;
+
+PROC IMPORT OUT= WORK.bank 
+            DATAFILE= "C:\Users\cswitzer\Desktop\bank.xls" 
+            DBMS=EXCELCS REPLACE;
+     RANGE="bankdata"; 
+     SCANTEXT=YES;
+     USEDATE=YES;
+     SCANTIME=YES;
+RUN;
+
+PROC CONTENTS DATA=work.bank VARNUM;
+RUN;
+
+PROC FREQ DATA=work.bank;
+   TABLES gender;
+PROC MEANS DATA=work.bank;
+   VAR salary;
+RUN;
+
+/*use "CLASS gender" rather than "BY gender" to
+eliminate the PROC SORT prerequisite step*/
+PROC MEANS DATA=work.bank;
+   CLASS gender;
+   VAR salary;
+RUN;
+
+DATA work.bank3;
+   SET work.bank;
+   If educ>0 & educ<12 THEN educat=1;
+   ELSE IF educ>=12 & educ<=15 THEN educat=2;
+   ELSE IF educ>15 THEN educat=3;
+RUN;
+
+PROC MEANS DATA=work.bank3;
+   CLASS educat;
+   VAR salary;
+RUN;
+
+/*formatting variables used below (to label the values of categorical variables)*/
+/*two steps in SAS, only one in SPSS*/
+
+ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP\" BODY="bank_crosstab.html";
+PROC FREQ DATA=work.bank3;
+   TABLES educat * gender;
+   FORMAT educat degree.
+                gender $sex.;
+   LABEL gender=;
+   TITLE "Cross-tabulation of educational level with gender";
+RUN;
+ODS HTML CLOSE;
+
+/*play with date variables for more understanding*/
+DATA work.bank3;
+   SET work.bank3;
+      test_date1='1JAN1960'D;
+      test_date2='31JAN1960'D;
+	  test_date3='1DEC1959'D;
+	  td1=mdy(1,1,1960);
+	  td2=mdy(1,31,1960);
+      td3=mdy(12,1,1959);
+      t_mmddyy10=test_date2;
+	  t_mmddyy8=test_date2;
+	  t_date9=test_date2;
+	  t_date7=test_date2;
+	  FORMAT t_mmddyy10 MMDDYY10.;
+      FORMAT t_mmddyy8 MMDDYY8.;
+	  FORMAT t_date9 DATE9.;
+	  FORMAT t_date7 DATE7.;
+RUN;
+
+/*a simpler formatting given below, for a numeric variable*/
+/*the "F" in F8.2 turns out not to be necessary*/
+/*division needed since there are 365.25 days per year*/
+
+DATA work.bank3;
+   SET work.bank3;
+   dob=bdate;
+   tod=today();
+   age=(tod-dob)/365.25;
+   FORMAT age F8.2;
+RUN;
+
+ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP\" BODY="age_histogram.html";
+PROC UNIVARIATE DATA=work.bank3;
+   VAR age;
+   HISTOGRAM age;
+   TITLE 'Histogram of ages';
+RUN;
+
+PROC UNIVARIATE DATA=work.bank3 NOPRINT;
+   VAR salary;
+   HISTOGRAM salary / CFILL=ltgray;
+   INSET n = 'Number of employees' / POS=ne;
+   TITLE 'Histogram of salaries';
+RUN;
+ODS HTML CLOSE;
+
+DATA myplace.bank_new;
+   SET work.bank3;
+RUN;
+
+
