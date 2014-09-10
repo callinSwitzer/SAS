@@ -97,7 +97,7 @@ RUN;
 PROC UNIVARIATE DATA=work.bank3 NOPRINT;
    VAR salary;
    HISTOGRAM salary / CFILL=ltgray;
-   INSET n = 'Number of employees' / POS=ne;
+   INSET n = 'Number of employees' / POS=ne; *northeast corner;
    TITLE 'Histogram of salaries';
 RUN;
 ODS HTML CLOSE;
