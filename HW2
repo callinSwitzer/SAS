@@ -73,6 +73,28 @@ proc sgplot data=PROB2_5;
   scatter x=X y=Y / group=GROUP;
 run;
 
+* Subset dataset all to create dataset G1 AND G2;
+data G1;
+  set PROB2_5;
+  keep X Y Z;
+  if GROUP="A";
+RUN; 
+
+data G2;
+  set PROB2_5;
+  keep X Y Z;
+  if GROUP="B";
+RUN; 
+
+* SCATTERPLOT FOR EACH GROUP; 
+proc sgplot data=G1;
+  scatter x=X y=Y;
+  TITLE "GROUP A"; 
+  proc sgplot data=G2;
+  scatter x=X y=Y;
+  TITLE "GROUP B";
+run;
+
 
 *** 2.7; 
 
