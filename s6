@@ -1,0 +1,112 @@
+DATA PATIENTS;
+   INPUT @1  ID          $3.
+         @4  DATE   MMDDYY8. 
+         @12 HR           3.
+         @15 SBP          3.
+         @18 DBP          3.
+         @21 DX           3.
+         @24 DOCFEE       4.
+         @28 LABFEE       4.;
+   FORMAT DATE MMDDYY10.;
+DATALINES;
+0071021198307012008001400400150
+0071201198307213009002000500200
+0090903198306611007013700300000
+0050705198307414008201300900000
+0050115198208018009601402001500
+0050618198207017008401400800400
+0050703198306414008401400800200
+;
+
+PROC MEANS DATA=patients NWAY MAXDEC=2;
+   CLASS id; * calculates mean by ID; 
+   VAR hr -- dbp docfee labfee; * double dash goes through all the variables from hr
+   through dbp;
+   OUTPUT 	OUT=stats 
+			MEAN=m_hr m_sbp m_dbp m_docfee m_labfee
+            STD = s_hr s_sbp s_dbp s_docfee s_labfee;
+RUN;
+DATA stats; * update formatting in the "stats" file;
+   SET stats;
+   FORMAT s_hr s_sbp s_dbp s_docfee s_labfee F8.2; *changes output format in file;
+RUN;
+
+/*NWAY option will be defined later (a little technical)*/
+/*MAXDEC=2 affects output window while F8.2 affects stats data file*/
+/*a range of variables encompassed by -- symbol*/
+/*almost wrote "DATA stats (DROP=_TYPE_);" but
+   decided to keep _TYPE_ visible for illustration*/
+
+
+
+************************************************
+now we try to find first and last visits
+***********************************************; 
+
+
+PROC SORT DATA=patients; * first sort; 
+   BY id date;
+RUN;
+
+* create new data set first visits; 
+
+DATA first_visit;
+   SET patients;
+   BY id;
+   IF first.id=1; * 1 is yes, 0 is no;
+RUN;
+*create mew data set for last visits; 
+
+DATA last_visit;
+   SET patients;
+   BY id;
+   IF last.id=1;
+RUN;
+
+/*a different use of the word "if" (subsetting if, as
+opposed to the conditional if...then)*/
+/*I usually will use the word "where" rather than "if", but the 
+presence of "first.id" and "last.id" here forces the use of "if"*/
+/*first.var & last.var are binary variables (0 or 1)*/
+/*1 means "yes", 0 means "no"*/
+
+DATA first_last;
+   SET patients;
+   BY id;
+   * tells what columns to retain in the original file; 
+   RETAIN first_hr last_hr first_sbp last_sbp first_dbp last_dbp;
+   IF first.id=1 & last.id=1 THEN DELETE; *patient has come only once; 
+   IF first.id=1 THEN DO; * pick up first bps;
+       first_hr=hr;
+       first_sbp=sbp; 
+       first_dbp=dbp;
+   END;
+   IF last.id=1 THEN DO; *pick up last bps; 
+       last_hr=hr;
+       last_sbp=sbp; 
+       last_dbp=dbp;
+	   diff_hr=last_hr-first_hr;
+       diff_sbp=last_sbp-first_sbp; 
+       diff_dbp=last_dbp-first_dbp; 
+       OUTPUT; 
+   END;
+   DROP hr sbp dbp date dx docfee labfee;
+RUN;
+
+/*differences between HR, SBP, DBP measurements at last & first visits*/
+
+DATA gaps;
+   SET patients;
+   BY id;   
+   previous_date=lag(date);
+   current_date=date;
+   gap_date=current_date-previous_date;
+   IF first.id=0 THEN OUTPUT;
+   FORMAT previous_date current_date MMDDYY10.;
+   DROP date hr sbp dbp date dx docfee labfee;
+RUN;
+
+/*gaps (in days) between every pair of adjacent visits*/
+
+
+   
