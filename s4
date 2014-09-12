@@ -1,0 +1,56 @@
+%INCLUDE 'C:\Users\cswitzer\Desktop\chisq.sas';
+
+%CHISQ(192,244,40,81,OPTIONS=CHISQ)
+/*e-mail and privacy example given in class*/
+/*ordinary chi-square test*/
+
+%CHISQ(70,40,30,40,OPTIONS=CHISQ)
+/*reproduces the table on pp. 89-90*/
+/*ordinary chi-square test*/
+/*Dewey vs. Truman presidential election poll: gender bias*/
+
+%CHISQ(32,15,30,23,OPTIONS=AGREE)
+/*reproduces the table on pp. 97-98*/
+/*McNemar's test for paired data*/
+/*antismoking commercial effectiveness: before & after*/
+
+%CHISQ(25,3,5,50,OPTIONS=AGREE)
+/*reproduces the table on p. 100*/
+/*Kappa statistics (coefficient of agreement)*/
+/*coefficient of agreement between two radiologists*/
+
+%CHISQ(50,20,100,130,OPTIONS=CHISQ CMH)
+/*reproduces the table on pp. 102-103*/
+/*odds ratio*/
+/*case-control study of people with brain tumors &
+   whether they've been exposed to benzene, versus
+   similar people who do not have brain tumors*/ 
+
+/* CMH stands for Cochran-Mantel-Haenszel */
+
+%CHISQ(20,80,15,135,OPTIONS=CMH)
+/*reproduces the table on p. 105*/
+/*relative risk*/
+/*cohort study of people with high cholesterol versus
+   people with low cholesterol, and incidence rate of
+   heart attacks*/
+
+
+DATA test;
+   ARRAY cells[2,2] _TEMPORARY_ (70,40,30,40);
+      DO row=1 TO 2;
+         DO col=1 TO 2;
+	        count=cells[row,col];
+		    OUTPUT;
+	     END;
+      END;
+RUN;
+
+/* stripping away information from tables */
+/* omitting all options */
+%CHISQ(192,244,40,81,OPTIONS=)
+
+/* removing percentages as well */
+%CHISQ(192,244,40,81,OPTIONS=NOCOL NOROW NOPERCENT)
+
+  
