@@ -1,0 +1,207 @@
+DATA PATIENTS;
+   INPUT @1  ID          $3.
+         @4  DATE   MMDDYY8. 
+         @12 HR           3.
+         @15 SBP          3.
+         @18 DBP          3.
+         @21 DX           3.
+         @24 DOCFEE       4.
+         @28 LABFEE       4.;
+   FORMAT DATE MMDDYY10.;
+DATALINES;
+0071021198307012008001400400150
+0071201198307213009002000500200
+0090903198306611007013700300000
+0050705198307414008201300900000
+0050115198208018009601402001500
+0050618198207017008401400800400
+0050703198306414008401400800200
+;
+
+/*** use AUTONAME feature for creating new variables ***/
+
+PROC MEANS DATA=patients NWAY MAXDEC=2;
+   CLASS id;
+   VAR hr -- dbp docfee labfee;
+   OUTPUT OUT=stats MEAN= STD= /AUTONAME; * handy autonaming!;
+RUN;
+
+/*** note double-hypen when formatting the new StdDev variables ***/
+
+DATA stats;
+   SET stats;
+   FORMAT hr_StdDev -- labfee_StdDev F8.2;
+RUN;
+
+/*** cannot replace BY by CLASS below: red error flag ***/
+/*** we're in a DATA block, not a PROC MEANS block! ***/
+
+PROC SORT DATA=patients;
+   BY id date;
+RUN;
+DATA first_visit;
+   SET patients;
+   BY id;
+   /*** IF first.id=1; ***/
+   id_frst=first.id;          /*** memorize values ***/
+RUN;
+DATA last_visit;
+   SET patients;
+   BY id;
+  /***  IF last.id=1; ***/
+   id_last=last.id;          /*** memorize values ***/
+RUN;
+
+/*I usually will use the word "where" rather than "if", but the 
+presence of "first.id" and "last.id" here forces the use of "if"*/
+
+DATA first_last0;
+   SET patients;
+   BY id;
+   RETAIN first_hr last_hr first_sbp last_sbp first_dbp last_dbp;
+   IF first.id=1 & last.id=1 THEN DELETE;
+   IF first.id=1 THEN DO;
+       first_hr=hr;
+       first_sbp=sbp; 
+       first_dbp=dbp;
+   END;
+   IF last.id=1 THEN DO;
+       last_hr=hr;
+       last_sbp=sbp; 
+       last_dbp=dbp;
+	   diff_hr=last_hr-first_hr;
+       diff_sbp=last_sbp-first_sbp; 
+       diff_dbp=last_dbp-first_dbp; 
+       OUTPUT; 
+   END;
+   DROP hr sbp dbp date dx docfee labfee;
+RUN;
+
+/*** what happens if we omit the RETAIN statement? ***/
+
+DATA first_last1;
+   SET patients;
+   BY id;
+   /*RETAIN first_hr last_hr first_sbp last_sbp first_dbp last_dbp;*/
+   IF first.id=1 & last.id=1 THEN DELETE;
+   IF first.id=1 THEN DO;
+       first_hr=hr;
+       first_sbp=sbp; 
+       first_dbp=dbp;
+   END;
+   IF last.id=1 THEN DO;
+       last_hr=hr;
+       last_sbp=sbp; 
+       last_dbp=dbp;
+	   diff_hr=last_hr-first_hr;
+       diff_sbp=last_sbp-first_sbp; 
+       diff_dbp=last_dbp-first_dbp; 
+       OUTPUT; 
+   END;
+   DROP hr sbp dbp date dx docfee labfee;
+RUN;
+
+/*** we lose all first_ values; 
+     last_ values appear because of closeness to OUTPUT ***/
+
+/*** so why is RETAIN needed here? ***/
+/*** we need to carry variable values (first_) from
+     one iteration to the next iteration ***/
+
+/*** test our understanding: should be able to eliminate 
+     last_ variables from RETAIN statement without change ***/
+
+DATA first_last2;
+   SET patients;
+   BY id;
+   RETAIN first_hr first_sbp first_dbp;    /*** change here ***/
+   IF first.id=1 & last.id=1 THEN DELETE;
+   IF first.id=1 THEN DO;
+       first_hr=hr;
+       first_sbp=sbp; 
+       first_dbp=dbp;
+   END;
+   IF last.id=1 THEN DO;
+       last_hr=hr;
+       last_sbp=sbp; 
+       last_dbp=dbp;
+	   diff_hr=last_hr-first_hr;
+       diff_sbp=last_sbp-first_sbp; 
+       diff_dbp=last_dbp-first_dbp; 
+       OUTPUT; 
+   END;
+   DROP hr sbp dbp date dx docfee labfee;
+RUN;
+
+/*** there is a small change: all first_ variables appear,
+     followed by last_ variables (were interspersed before) ***/
+/*** otherwise the output files are the same! ***/
+
+/* RETAIN is discussed on pp. 138-140 of Cody & Smith */
+/* FIRST.id & LAST.id can be found on pp. 133-135 */
+/* their acronym PDV stands for "program data vector",
+   which was first defined on pp. 13-14 */
+
+/*** simple demonstration of lag=lag1, lag2 & lag3 ***/
+
+DATA demo;
+   SET patients;
+   BY id;   
+   date0=date;
+   date1=lag1(date);
+   date2=lag2(date);
+   date3=lag3(date);
+   FORMAT date0 date1 date2 date3 MMDDYY10.;
+   DROP date hr sbp dbp date dx docfee labfee;
+RUN;
+
+/*** LAG function returns the value of its argument
+     the last time LAG was executed ***/ 
+
+DATA gaps0;
+   SET patients;
+   BY id;   
+   previous_date=lag(date);
+   current_date=date;
+   gap_date=current_date-previous_date;
+   IF first.id=0 THEN OUTPUT;
+   FORMAT previous_date current_date MMDDYY10.;
+   DROP date hr sbp dbp date dx docfee labfee;
+RUN;
+
+/*gaps (in days) between every pair of adjacent visits*/
+
+/*** why isn't RETAIN needed here? ***/
+/*** we don't need to carry a variable value from
+     one iteration to the next iteration ***/
+
+/*** alternatively use DIF function (like LAG) ***/
+
+DATA gaps1;
+   SET patients;
+   BY id;   
+   gap_date=DIF(date);
+   IF first.id=0 THEN OUTPUT;
+   DROP date hr sbp dbp date dx docfee labfee;
+RUN;
+
+/*** instead of writing the condition "first.id=0"
+     could write "NOT first.id=1"
+     or even just "NOT first.id" ***/
+
+DATA gaps2;
+   SET patients;
+   BY id;   
+   gap_date=DIF(date);
+   IF NOT first.id THEN OUTPUT;
+   DROP date hr sbp dbp date dx docfee labfee;
+RUN;
+
+/*** reason this works: a condition C=1 is 
+     either true (1) or false (0) ***/
+/*** if C is itself a binary variable (0 or 1)
+     then could write C=1 simply as C ***/ 
+
+
+
+   
