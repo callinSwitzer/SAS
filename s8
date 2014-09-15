@@ -1,0 +1,49 @@
+DATA DEMOG;
+   LENGTH GENDER $ 1 REGION $ 5;
+   INPUT SUBJ GENDER $ REGION $ HEIGHT WEIGHT;
+DATALINES;
+01 M North 70 200
+02 M North 72 220
+03 M South 68 155
+04 M South 74 210
+05 F North 68 130
+06 F North 63 110
+07 F South 65 140
+08 F South 64 108
+09 F South  . 220
+10 F South 67 130
+;
+
+PROC MEANS DATA=demog MAXDEC=2;
+   CLASS gender region;
+   VAR height weight;
+   OUTPUT OUT=htwtsum
+          MEAN=m_height m_weight
+		  STD=s_height s_weight;
+RUN;
+DATA htwtsum;
+   SET htwtsum;
+   FORMAT m_height m_weight s_height s_weight F8.2;
+RUN;
+
+/*did not include NWAY: we see _TYPE_=0, 1 and 2*/
+
+PROC MEANS DATA=demog MAXDEC=2 NOPRINT CHARTYPE;
+   CLASS gender region;
+   VAR height weight;
+   OUTPUT OUT=htwtsuma
+          MEAN=m_height m_weight
+		  STD=s_height s_weight;
+RUN;
+DATA htwtsuma;
+   SET htwtsuma;
+   FORMAT m_height m_weight s_height s_weight F8.2;
+RUN;
+
+/*NOPRINT suppresses the output window printing*/
+/*CHARTYPE makes _TYPE_ appear in binary*/
+/*in binary, 0=00: mean over entire sample
+                  1=01: mean over each region
+                  2=10: mean over each gender 
+                  3=11: mean over each gender & region (cell mean)*/
+
