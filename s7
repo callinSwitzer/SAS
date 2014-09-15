@@ -1,0 +1,56 @@
+/*gain in a student's test scores is defined at data input step*/
+
+DATA SCHOOL;
+   LENGTH GENDER $ 1 TEACHER $ 5;
+   INPUT SUBJECT 
+         GENDER  $ 
+         TEACHER $ 
+         T_AGE 
+         PRETEST 
+         POSTTEST;
+   GAIN = POSTTEST - PRETEST;
+DATALINES;
+1 M JONES 35 67 81
+2 F JONES 35 98 86
+3 M JONES 35 52 92
+4 M BLACK 42 41 74
+5 F BLACK 42 46 76
+6 M SMITH 68 38 80
+7 M SMITH 68 49 71
+8 F SMITH 68 38 63
+9 M HAYES 23 71 72
+10 F HAYES 23 46 92
+11 M HAYES 23 70 90
+12 F WONG 47 49 64
+13 M WONG 47 50 63
+;
+
+PROC MEANS DATA=school NWAY MAXDEC=2;
+   CLASS teacher;
+   VAR pretest posttest gain;
+   OUTPUT OUT=teachsum
+          MEAN=m_pre m_post m_gain
+          STD=s_pre s_post s_gain;
+RUN;
+DATA teachsum;
+   SET teachsum;
+   FORMAT m_pre m_post m_gain s_pre s_post s_gain F8.2;
+RUN;
+
+/*summary dataset with one CLASS variable (teacher)*/
+/*what about two CLASS variables?*/
+/*but first: what happens if we remove NWAY?*/
+
+PROC MEANS DATA=school NOPRINT;
+   CLASS teacher;
+   VAR pretest posttest gain;
+   OUTPUT OUT=teachsuma
+          MEAN=m_pre m_post m_gain
+          STD=s_pre s_post s_gain;
+RUN;
+DATA teachsuma;
+   SET teachsuma;
+   FORMAT m_pre m_post m_gain s_pre s_post s_gain F8.2;
+RUN;
+
+/*we see _TYPE_=0 and 1*/
