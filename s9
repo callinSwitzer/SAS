@@ -1,0 +1,164 @@
+DATA CORR_EG;
+   INPUT 	GENDER $ 
+			HEIGHT 
+			WEIGHT 
+			AGE;
+DATALINES;
+M 68 155 23
+F 61 99 20
+F 63 115 21
+M 70 205 45
+M 69 170 .
+F 65 125 30
+M 72 220 48
+;
+PROC CORR DATA=CORR_EG;
+   TITLE "Example of a Correlation Matrix";
+   VAR HEIGHT WEIGHT AGE;
+RUN;
+
+/*unusually large correlations due to small sample size*/
+/*default is Pearson's correlation coefficient*/
+/*nonparametric alternatives include Spearman rank,
+   Kendall tau-b and Hoeffding D coefficients*/
+
+PROC REG DATA=CORR_EG;
+   TITLE "Regression Line for Height-Weight Data";
+   MODEL WEIGHT = HEIGHT;
+RUN;
+
+/** beautiful improvement over SAS 9.2 graphics here (but only here)! **/
+/** compare to pp. 167-168 of Cody & Smith, which has no graphs, only tables **/
+
+/*can add to PROC REG to obtain scatterplot & linear fit 
+   (just as we added to PROC UNIVARIATE to obtain histogram)*/
+
+SYMBOL VALUE=SQUARE COLOR=BLACK;
+PROC REG DATA=CORR_EG NOPRINT;
+   TITLE "Data Scatterplot and Linear Fit (REG)";
+   MODEL WEIGHT = HEIGHT;
+   PLOT WEIGHT * HEIGHT;                             /* note "plot" here */
+RUN;
+QUIT;
+
+SYMBOL VALUE=DOT COLOR=blue;
+PROC REG DATA=CORR_EG NOPRINT;
+   TITLE "Scatterplot of Residuals (REG)";
+   MODEL WEIGHT = HEIGHT;
+	*notice the period after residual.;
+	PLOT RESIDUAL. * HEIGHT;                          /* likewise */
+RUN;
+QUIT;
+
+/*another way is to directly call GPLOT, first discussed on pp. 58-64*/
+/*GPLOT is part of SAS/Graph, a module not part of Base SAS*/
+
+SYMBOL VALUE=TRIANGLE COLOR=BLACK I=RQ LINE=6;
+* I=RL produces a regression line -- interpolation == regression; 
+* I = RQ will fit a quadratic;
+PROC GPLOT DATA=CORR_EG;
+   TITLE "Data Scatterplot and Linear Fit (GPLOT)";
+   PLOT WEIGHT * HEIGHT;
+RUN;
+QUIT;
+
+/*I is the interpolation parameter*/
+/*I = RL produces the regression line*/
+/*I = RQ instead produces the best-fitting quadratic*/
+/*I = RC instead produces the best-fitting cubic*/
+
+/*can overlay several curves (regression line, plus
+  bounds of several kinds) as follows*/
+
+SYMBOL1 VALUE=TRIANGLE COLOR=BLACK I=RL LINE=1;
+SYMBOL2 VALUE=NONE COLOR=GREEN I=RLCLM95 LINE=2;
+SYMBOL3 VALUE=NONE COLOR=BLUE I=RLCLI95 LINE=3;
+PROC GPLOT DATA=CORR_EG;
+   TITLE "Regression line, 95% CI about mean(y), 95% CI about individual y's";
+   PLOT WEIGHT * HEIGHT = 1 /*addressing symbol 1*/ 
+        WEIGHT * HEIGHT = 2
+        WEIGHT * HEIGHT = 3 / OVERLAY;
+RUN;
+QUIT;
+
+DATA HEART;
+   INPUT DOSE HR;
+   LDOSE = LOG(DOSE);
+   LABEL DOSE = "Drug Dose";
+   LABEL HR = "Heart Rate";
+   LABEL LDOSE = "Log of Dose";
+DATALINES;
+2 60 
+2 58 
+4 63 
+4 62 
+8 67 
+8 65 
+16 70 
+16 70 
+32 74 
+32 73
+;
+
+/*LOG is the natural logarithmic function (base e)*/
+/*the use of log-transformed data will appear shortly*/ 
+
+PROC REG DATA=HEART;
+   TITLE "Investigating the Dose/HR Relationship";
+   MODEL HR = DOSE;
+RUN;
+
+/** beautiful improvement over SAS 9.2 graphics here (but only here)! **/
+
+SYMBOL VALUE=DOT COLOR=BLACK I=SM;
+PROC GPLOT DATA=HEART;
+   TITLE "Investigating the Dose/HR Relationship (I)";
+   PLOT HR*DOSE;
+RUN;
+QUIT;
+
+/*I = SM produces a smooth curvilinear fit to the data points*/
+/*SMn, where n is an integer from 0 to 99, varies the fit from
+   precise to coarse (from complicated curve to simple line)*/
+/*SM = SM0 by default*/
+/*formulas for such "smoothed splines" are hard to write down*/ 
+
+SYMBOL1 VALUE=DOT COLOR=BLACK I=SM0 LINE=1;
+SYMBOL2 VALUE=NONE COLOR=RED I=SM75 LINE=2;
+SYMBOL3 VALUE=NONE COLOR=BLUE I=SM85 LINE=3;
+SYMBOL4 VALUE=NONE COLOR=GREEN I=SM99 LINE=4;
+PROC GPLOT DATA=HEART;
+   TITLE "Investigating the Dose/HR Relationship (II)";
+   PLOT HR*DOSE=1
+         HR*DOSE=2
+		 HR*DOSE=3
+         HR*DOSE=4 / OVERLAY;
+RUN;
+QUIT;
+
+/*the relationship is non-linear*/
+/*when DOSE is doubled, HR increases linearly,
+   which suggests that we study LDOSE instead*/
+
+PROC REG DATA=HEART;
+   TITLE "Investigating the Log(Dose)/HR Relationship";
+   MODEL HR = LDOSE;
+RUN; 
+
+/** beautiful improvement over SAS 9.2 graphics here (but only here)! **/
+
+SYMBOL5 VALUE=DIAMOND COLOR=MAGENTA I=RL LINE=5;
+PROC GPLOT DATA=HEART;
+   TITLE "Investigating the Log(Dose)/HR Relationship (I)";
+   PLOT HR*LDOSE=5;
+RUN;
+QUIT;
+
+PROC GPLOT DATA=HEART;
+   TITLE "Investigating the Log(Dose)/HR Relationship (II)";
+   PLOT HR*LDOSE=1
+         HR*LDOSE=2
+		 HR*LDOSE=3
+         HR*LDOSE=4 / OVERLAY;
+RUN;
+QUIT;
