@@ -1,0 +1,108 @@
+/*the agony of missing data (part I)*/
+
+PROC FORMAT;
+ VALUE $cmiss " "="missing"     /*one space between the quotes*/
+                     OTHER="valid";
+ VALUE nmiss .="missing"         /*one dot*/
+                     OTHER="valid";
+RUN;
+
+PROC IMPORT OUT= WORK.bank 
+            DATAFILE= "C:\Users\cswitzer\Desktop\bank.xls" 
+            DBMS=EXCELCS REPLACE;
+     RANGE="bankdata"; 
+     SCANTEXT=YES;
+     USEDATE=YES;
+     SCANTIME=YES;
+RUN;
+
+PROC CONTENTS DATA=work.bank VARNUM;
+TITLE "Bank Employee Dataset";
+RUN;
+
+PROC FREQ DATA=work.bank;
+   TABLES gender;  /*character variable*/
+PROC MEANS DATA=work.bank N NMISS MEAN STD; /*NMISS tells the number of missing data points*/
+   VAR bdate;         /*numeric variable*/
+RUN;
+
+/*is there another, more uniform way to count missing values?*/
+
+PROC FREQ DATA=work.bank;
+  TABLES gender / missing;
+  FORMAT gender $cmiss.;
+PROC FREQ DATA=work.bank;
+  TABLES bdate / missing; /* allows you to use proc freq with numerical values*/
+  FORMAT bdate nmiss.;
+RUN; 
+
+/*may also run together in one step*/
+
+PROC FREQ DATA=work.bank;
+  TABLES gender bdate / missing;
+  FORMAT gender $cmiss.
+         bdate nmiss.;
+RUN; 
+
+/*can we find the IDs associated with the missing data?*/
+
+PROC PRINT DATA=work.bank;
+  WHERE gender=" "; /* could us IF instead of WERE */
+  VAR id gender salary;
+PROC PRINT DATA=work.bank;
+  WHERE bdate=.;
+  VAR id bdate salary;
+RUN; 
+
+/*look at "educ" variable, but with first 7 datapoints in XLS deleted*/
+PROC IMPORT OUT= WORK.bank_7 
+            DATAFILE= "C:\Users\cswitzer\Desktop\bank_7.xls" 
+            DBMS=EXCELCS REPLACE;
+     RANGE="bankdata"; 
+     SCANTEXT=YES;
+     USEDATE=YES;
+     SCANTIME=YES;
+RUN;
+
+PROC MEANS DATA=work.bank_7 N NMISS MEAN STD MIN MAX;
+TITLE "Bank Employees: Educational Level";
+   VAR educ;
+RUN;                       /* 474 - 7 = 467 */
+
+/*look at "educ" variable, but with first 8 datapoints in XLS deleted instead*/
+PROC IMPORT OUT= WORK.bank_8 
+            DATAFILE= "C:\Users\cswitzer\Desktop\bank_8.xls" 
+            DBMS=EXCELCS REPLACE;
+     RANGE="bankdata"; 
+     SCANTEXT=YES;
+     USEDATE=YES;
+     SCANTIME=YES;
+RUN;
+
+PROC MEANS DATA=work.bank_8 N NMISS MEAN STD MIN MAX;
+   VAR educ; /* this doesn't work, bc SAS turns this into a categorical variable */
+RUN;
+
+/*what is wrong in the latter case?  why is 8 so different from 7?*/
+
+PROC CONTENTS DATA=work.bank_8 VARNUM;
+RUN;
+
+/*the remaining 466 datapoints exist, but are now in character format*/
+/*right-mouse click on the "educ" in XLS, change format to numbers --
+  we've saved the updated excel file as bank_8a.xls*/
+
+PROC IMPORT OUT= WORK.bank_8a 
+            DATAFILE= "C:\Users\cswitzer\Desktop\bank_8a.xls" 
+            DBMS=EXCELCS REPLACE;
+     RANGE="bankdata"; 
+     SCANTEXT=YES;
+     USEDATE=YES;
+     SCANTIME=YES;
+RUN;
+
+PROC MEANS DATA=work.bank_8a N NMISS MEAN STD MIN MAX;
+   VAR educ;
+RUN;                       /* 474 - 8 = 466 */
+
+
