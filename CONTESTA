@@ -1,0 +1,77 @@
+DATA fun;
+DO n=1 TO 10;
+   RETAIN seed 45;
+   x1=RANNOR(seed)*1-0.1;
+   x2=RANNOR(seed)*1+0.1;
+   x3=RANNOR(seed)*1-0.2;
+   x4=RANNOR(seed)*1+0.2;
+   x5=RANNOR(seed)*1-0.3;
+   x6=RANNOR(seed)*1+0.3;
+   x7=RANNOR(seed)*1-0.4;
+   x8=RANNOR(seed)*1+0.4;
+   x9=RANNOR(seed)*1-0.5;
+   x10=RANNOR(seed)*1+0.5;
+   x11=RANNOR(seed)*1-0.6;
+   x12=RANNOR(seed)*1+0.6;
+   OUTPUT;
+END;
+RUN;
+
+PROC PRINT;
+   TITLE "Random";
+   ID n;
+   VAR x1-x12;
+RUN;
+
+/*compute summary statistics as always*/
+PROC MEANS DATA=fun;
+   VAR x1-x12;
+RUN;
+
+/*put statistics in a new SAS data file*/
+PROC MEANS DATA=fun;
+   VAR x1-x12;
+   OUTPUT OUT=fun1;
+RUN;
+
+/*eliminate extraneous variables*/
+DATA fun2 (DROP=_TYPE_ _FREQ_);
+   SET fun1;
+RUN;
+
+/*switch around rows and columns*/
+PROC TRANSPOSE DATA=fun2 OUT=fun3;
+   ID _STAT_;
+RUN;
+
+/*change label of first column and remove N column*/
+DATA fun4 (DROP=N);
+   SET fun3;
+   LABEL _NAME_='VARIABLE';
+RUN;
+
+/*export this file to Excel (managers love Excel!)*/
+PROC EXPORT DATA= WORK.FUN4 
+            OUTFILE= "C:\Users\cswitzer\Desktop\fun.xls" 
+            DBMS=EXCELCS LABEL REPLACE;
+     SHEET="fun"; 
+RUN;
+
+/*do the same, except include MEDIAN & RANGE*/
+PROC MEANS DATA=fun N MIN MAX MEAN STD MEDIAN RANGE;
+   VAR x1-x12;
+   OUTPUT OUT=fun11  STD = ST; /*change something here*/
+RUN;
+
+
+/* CHECK THIS OUT 
+http://support.sas.com/documentation/cdl/en/proc/61895/HTML/default/viewer.htm#a002473543.htm */
+
+/*printout OK but output file still missing MEDIAN & RANGE!*/
+/*find a way to work around this apparent bug*/
+
+/* output out=sumstat mean=AverageGrade
+          idgroup (max(score) obs out (name)=BestScore)
+          / ways levels;
+run;*/
+
