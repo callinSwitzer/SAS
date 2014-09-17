@@ -1,0 +1,68 @@
+/* hw 5 */
+DATA XYZ;
+	INPUT X Y Z;
+DATALINES; 
+1  3  15 
+7  13 7 
+8  12 5 
+3  4  14 
+4  7  10 
+;
+PROC CORR DATA = XYZ;
+	VAR X; 
+	WITH Y Z; 
+RUN;
+
+
+PROC CORR DATA = XYZ; 
+	VAR X Y Z; 
+RUN; 
+
+/* 5.3 */
+DATA AS; 
+	INPUT AGE SBP; 
+DATALINES;
+15 116 
+20 120 
+25 130 
+30 132 
+40 150 
+50 148 
+;
+
+PROC REG DATA = AS; 
+	MODEL AGE = SBP;
+RUN; 
+
+* OR DO THIS;
+PROC CORR DATA = AS; 
+	VAR AGE SBP;
+RUN;
+
+/* 5.5 */
+
+PROC REG DATA = XYZ; 
+	MODEL Y = X; 
+RUN; 
+
+/* 5.7 */
+DATA LXYZ;
+	SET XYZ; 
+	LX = LOG(X);
+	LY = LOG(Y); 
+	LZ = LOG(Z);
+RUN; 
+
+PROC CORR DATA = LXYZ; 
+	VAR LX LY LZ; 
+RUN;
+
+/* 5.9 */
+SYMBOL1 VALUE = DOT COLOR = BLACK;
+SYMBOL2 VALUE = NONE I=RL;
+ 
+PROC GPLOT DATA = XYZ;
+	TITLE "X VS Y";
+	PLOT 	Y*X = 1
+			Y*X = 2 / OVERLAY;
+RUN; 
