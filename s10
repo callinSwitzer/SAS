@@ -1,0 +1,49 @@
+DATA RESPONSE;
+   INPUT GROUP $ TIME;
+DATALINES;
+C 80
+C 93
+C 83
+C 89
+C 98
+T 100
+T 103
+T 104
+T 99
+T 102
+;
+
+PROC TTEST COCHRAN DATA=RESPONSE;
+   TITLE "T-test Example";
+   CLASS GROUP;
+   VAR TIME;
+RUN;
+
+/* the T stat is -3.83, when we use pooled sd's */
+/* this also gives results for an F-test to test equality of variances */
+/* student t-test assumes equal variances */
+/* we might want to use the Cochron version of the test, bc the variances are 
+unequal */
+
+/*note option COCHRAN gives an additional set of test results*/
+/*the above was for unpaired data, i.e., the 5 control subjects
+   and the 5 treatment subjects are independent*/
+/*what can be done for paired data, e.g., before & after?*/
+
+DATA PAIRED;
+   INPUT CTIME TTIME;
+DATALINES;
+90 95
+87 92
+100 104
+80 89
+95 101
+90 105
+;
+
+PROC TTEST DATA=PAIRED;
+   TITLE "Demonstrating a Paired T-test";
+   PAIRED CTIME * TTIME;
+RUN;
+
+/*based on the difference CTIME-TTIME*/
