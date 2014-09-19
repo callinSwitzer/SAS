@@ -1,0 +1,41 @@
+LIBNAME myplace "C:\Users\cswitzer\Desktop";
+
+PROC MEANS DATA=myplace.candy NOPRINT;
+   VAR SatFat;
+   OUTPUT OUT=quartiles Q1=q1
+                        MEDIAN=q2
+                        Q3=q3;
+RUN;
+
+/*need to "merge" a single number Q3 to every obs in dataset*/
+/*Univ. North Carolina website & SAS Support website*/
+/*http://www.cpc.unc.edu/research/tools/data_analysis/sastopics/datamanagement*/
+/*http://support.sas.com/ctx/samples/index.jsp?sid=775*/
+
+DATA candy_merge;
+   IF _N_=1 THEN SET quartiles (KEEP=q3);
+   IF _N_=17 THEN SET quartiles (KEEP=q2);
+   IF _N_=43 THEN SET quartiles (KEEP=q1);
+   SET myplace.candy;
+   Nsave = _N_;
+RUN;
+
+/* For sake of illustration, merge in q1, q2 & q3 at different rows. */
+
+PROC PRINT DATA=candy_merge;
+RUN;
+
+/* The three q's appear in the first three columns; 
+the Nsave (saved copy of hidden variable _N_) appears in the last column. */
+
+/* Consider the following sentences from the SAS support site (paraphrased):
+
+"SAS also reads 'quartiles' with a SET statement but only in the first iteration 
+of the DATA step (when _N_ equals 1). SAS then retains the values of variables 
+from 'quartiles' for all observations in 'candy_merge'. This works because 
+variables read with a SET statement are automatically retained. Normally you 
+don't notice this because the retained values are overwritten by the next 
+observation. But in this case the variables from 'quartiles' are read once 
+at the first iteration of the DATA step and then retained for all other 
+observations. The effect is similar to a RETAIN statement."  */
+
