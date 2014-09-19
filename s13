@@ -1,0 +1,106 @@
+LIBNAME myplace "C:\Users\cswitzer\Desktop";
+PROC FORMAT;
+   VALUE fseason 1="winter" 2="spring" 3="summer" 4="autumn";
+ RUN;
+
+PROC CONTENTS DATA=myplace.beer VARNUM;
+RUN;
+
+/*monthly sales of beer in hectoliters, along with the average high and low 
+   temperatures in the region, over a period of five years*/
+/*what percentage of sales occur in summer?*/
+/*summer corresponds to months 6-8, 18-20, 30-32, 42-44 & 54-56*/
+/*equivalently, 6<=mod(month,12)<=8, where mod(x,y) is the remainder
+   of x upon division by y*/
+
+DATA beer_subset;
+   SET myplace.beer;
+   WHERE 6<=mod(month,12)<=8;
+RUN;
+
+PROC MEANS DATA=myplace.beer NOPRINT;
+   VAR sales;
+   OUTPUT OUT=total_sales SUM=total;
+RUN;
+
+/*need to "merge" the total to every obs in dataset*/
+/*Univ. North Carolina website & SAS Support website*/
+/*http://www.cpc.unc.edu/research/tools/data_analysis/sastopics/datamanagement*/
+/*http://support.sas.com/ctx/samples/index.jsp?sid=775*/
+
+DATA beer_merge;
+   IF _N_=1 THEN SET total_sales (KEEP=total); /* make a new column with the same value*/
+   SET myplace.beer;
+   prcnt_sales=(sales/total)*100;
+   FORMAT prcnt_sales F8.2;
+RUN;
+
+/*total will appear as the first variable in the merged dataset*/
+/*prcnt_sales will appear as the last*/
+
+PROC MEANS DATA=beer_merge SUM MAXDEC=2;
+   WHERE 6<=mod(month,12)<=8;
+   VAR prcnt_sales;
+   TITLE "Percentage of Total Beer Sales in Summer";
+RUN;
+
+/*do the same for the other three seasons*/
+
+PROC MEANS DATA=beer_merge SUM MAXDEC=2;
+   WHERE 9<=mod(month,12)<=11;
+   VAR prcnt_sales;
+   TITLE "Percentage of Total Beer Sales in Autumn";
+RUN;
+
+PROC MEANS DATA=beer_merge SUM MAXDEC=2;
+   WHERE 0<=mod(month,12)<=2;
+   VAR prcnt_sales;
+   TITLE "Percentage of Total Beer Sales in Winter";
+RUN;
+
+PROC MEANS DATA=beer_merge SUM MAXDEC=2;
+   WHERE 3<=mod(month,12)<=5;
+   VAR prcnt_sales;
+   TITLE "Percentage of Total Beer Sales in Spring";
+RUN;
+
+/*how to present these four percentages in one table?*/
+
+DATA beer_merge;
+   SET beer_merge;
+   IF 6<=mod(month,12)<=8 THEN season=3;
+   ELSE IF 9<=mod(month,12)<=11 THEN season=4;
+   ELSE IF 0<=mod(month,12)<=2 THEN season=1;
+   ELSE IF 3<=mod(month,12)<=5 THEN season=2;
+RUN;
+
+ODS HTML PATH="C:\Users\cswitzer\Desktop\" BODY="beer_sales.html";
+PROC MEANS DATA=beer_merge SUM MAXDEC=2 NONOBS;
+   CLASS season;
+   VAR prcnt_sales;
+   TITLE "Percentage of Total Regional Beer Sales by Season";
+   FORMAT season fseason.;
+RUN;
+ODS HTML CLOSE;
+
+/*how to replace the word "Sum" in table by "percentage"?*/
+/*and to remove other unnecessary words?*/
+
+PROC MEANS DATA=beer_merge SUM MAXDEC=2 NONOBS NOPRINT NWAY;
+   CLASS season;
+   VAR prcnt_sales;
+   FORMAT season fseason.;
+   OUTPUT OUT=beer_sum SUM=percentage;
+RUN;
+DATA beer_sum;
+   SET beer_sum;
+   DROP _TYPE_ _FREQ_;
+RUN;
+
+OPTIONS NODATE NONUMBER;
+ODS PDF FILE="C:\Users\cswitzer\Desktop\beer_sales.pdf";
+PROC PRINT DATA=beer_sum NOOBS;
+   TITLE1 "Percentage of Total Regional Beer Sales by Season";
+   TITLE2 "(based on five years of data)";
+RUN;
+ODS PDF CLOSE;
