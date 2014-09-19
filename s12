@@ -1,0 +1,60 @@
+LIBNAME myplace "C:\Users\cswitzer\Desktop";
+
+PROC CONTENTS DATA=myplace.candy VARNUM;
+RUN;
+
+DATA candy_subset1;
+   SET myplace.candy;
+   WHERE brand='Hershey';
+RUN;
+
+DATA candy_subset2;
+   SET myplace.candy;
+   WHERE brand='Hershey' & (sodium<60 | sugars>30);
+RUN;
+
+PROC UNIVARIATE DATA=myplace.candy;
+   VAR SatFat;
+RUN;
+
+DATA candy_10;
+   SET myplace.candy;
+   WHERE SatFat>10.0;
+RUN;
+
+/*most elegant way to replace 10.0 by 75%-tile?*/
+/*we know 75%-tile is 8.0, but wish to automate*/
+
+PROC MEANS DATA=myplace.candy Q1 MEDIAN Q3;
+   VAR SatFat;
+   OUTPUT OUT=quartiles;
+RUN;
+
+/*fails (due to the bug underlying ContestA)!*/
+/*since we have only one variable SatFat, a quick workaround
+   is as follows*/
+
+PROC MEANS DATA=myplace.candy NOPRINT;
+   VAR SatFat;
+   OUTPUT OUT=quartiles Q1=q1
+                        MEDIAN=q2
+                        Q3=q3;
+RUN;
+
+/*need to "merge" a single number Q3 to every obs in dataset*/
+/*Univ. North Carolina website & SAS Support website*/
+/*http://www.cpc.unc.edu/research/tools/data_analysis/sastopics/datamanagement*/
+/*http://support.sas.com/ctx/samples/index.jsp?sid=775*/
+
+DATA candy_merge;
+   IF _N_=1 THEN SET quartiles (KEEP=q3);
+   SET myplace.candy;
+RUN;
+
+/*q3 will appear as the first variable in the merged dataset*/
+
+DATA candy_q3;
+   SET candy_merge;
+   WHERE SatFat>q3;
+   DROP q3;
+RUN;
