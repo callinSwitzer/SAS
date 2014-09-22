@@ -1,0 +1,42 @@
+/*Homework #0			September 19, 2014
+
+1.  **More Candy -- a final SAS exercise**
+
+Look at the Candy SAS dataset.  Suppose that we want to study
+only the subset consisting of companies (brands) that have
+more than two products (names).  Write SAS code that removes
+automatically all companies with two or less products.
+
+2.  Wrap up reading Cody & Smith.  Finish assigned SAS exercises.
+
+3.  Prepare for your oral presentation on your SAS project.
+Ask questions, by all means!
+
+4.  **More about PROC SQL -- a final SAS reading**
+
+Read more about PROC SQL at
+
+http://www.ats.ucla.edu/stat/sas/library/nesug99/bt082.pdf
+
+and try using it on, for example, our bank employee dataset.*/
+
+* first, download the candy.sas7bdat data;
+
+* look at data; 
+LIBNAME myplace "C:\Users\cswitzer\Desktop";
+
+PROC CONTENTS DATA=myplace.candy VARNUM;
+RUN;
+
+/* Sort by brand */
+PROC SORT DATA = MYPLACE.CANDY; 
+	BY brand;
+RUN; 
+ 
+/*output duplicate dataset*/
+DATA myplace.candyDuplicates;
+	SET MYPLACE.CANDY;
+	BY brand;
+	/* if the brand is not in the dataset only once, then output it to the duplicate file*/
+	IF ^(first.brand and last.brand) THEN OUTPUT myplace.candyDuplicates;
+RUN; 
