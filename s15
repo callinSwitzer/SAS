@@ -1,0 +1,98 @@
+/*Match merging data files in SAS: Part I*/
+/*based on
+  http://www.ats.ucla.edu/stat/SAS/modules/merge.htm
+ plus new data found at
+   http://www.taxhistory.org/www/website.nsf/Web/PresidentialTaxReturns?OpenDocument
+*/
+
+/*one-to-one merge example*/
+DATA pres; 
+  LENGTH name $ 14;    
+  INPUT famid name $ inc07 ; 
+CARDS; 
+2 GeorgeLaura    923807   
+1 BarackMichelle 4139965  
+3 BillHillary    20400000  
+; 
+RUN; 
+DATA incm; 
+  INPUT famid inc00 inc01 inc02 inc03 inc04 inc05 inc06
+ ; 
+CARDS; 
+3 357026 15949819 9466632 7934705 19995915 18056395 15858422 
+1 240505 272759   259394  238327  207647   1655106  983826
+2 894880 811100   856058  822126  784219   735180   765801
+RUN;
+/* 1. Sort the pres file by "famid" & save sorted file as pres2 */ 
+PROC SORT DATA=pres OUT=pres2; 
+  BY famid; 
+RUN; 
+/* 2. Sort incm by "famid" & save sorted file as incm2 */
+PROC SORT DATA=incm OUT=incm2; 
+  BY famid; 
+RUN; 
+/* 3. Merge pres2 and incm2 by "famid" in a data step */
+DATA pres_incm; 
+  MERGE pres2 incm2; 
+  BY famid; 
+RUN: 
+PROC PRINT DATA=pres_incm; 
+RUN; 
+
+/*how to move "inc07" to the rightmost column?*/
+/*give the full listing in a RETAIN statement*/
+/*more on reordering variables in s19.sas later*/
+
+DATA pres_incm;
+   RETAIN name famid inc00 - inc07;
+   SET pres_incm;
+RUN;
+PROC PRINT DATA=pres_incm; 
+RUN; 
+
+/*merging is what Cody & Smith call "combining different data
+   from multiple SAS data sets" (pp. 406-409)*/
+
+/*one-to-many merge example*/
+
+DATA kids; 
+  INPUT famid kidname $ age sex $ ; 
+CARDS; 
+3 Chelsea 28 f
+1 Malia   10 f
+1 Natasha 7  f
+2 Barbara 27 f
+2 Jenna   27 f 
+4 Track   19 m
+4 Bristol 18 f
+4 Willow  13 f
+4 Piper   7  f
+4 Trig    1  m
+; 
+RUN; 
+/* 1. sort pres on "famid" and save the sorted file as pres2 
+   (DONE ALREADY) */
+/* 2. sort kids on "famid" and save the sorted file as kids2 */
+PROC SORT DATA=kids OUT=kids2;
+  BY famid; 
+RUN; 
+/* 3. merge pres2 and kids2 based on "famid", creating preskid */ 
+DATA pres_kids; 
+  MERGE pres2 kids2; 
+  BY famid; 
+RUN; 
+PROC PRINT DATA=pres_kids; 
+RUN; 
+
+DATA pres_kids;
+   RETAIN name famid kidname age sex inc07;
+   SET pres_kids;
+RUN;
+PROC PRINT DATA=pres_kids; 
+RUN; 
+
+/*the pres file is treated like a table that we look up 
+   repeatedly as needed (pp. 409-412 of Cody & Smith)
+   and match according to "famid"*/
+
+/*merging according to two or more BY variables is also possible*/
