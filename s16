@@ -1,0 +1,82 @@
+/*Match merging data files in SAS: Part II*/
+/*based on
+  http://www.ats.ucla.edu/stat/SAS/modules/merge.htm
+plus new data found at
+   http://www.taxhistory.org/www/website.nsf/Web/PresidentialTaxReturns?OpenDocument
+*/
+
+/*what happens when there is mismatching?*/
+DATA pres;
+ LENGTH name $ 14;    
+ INPUT famid name $ inc07;
+DATALINES;
+2 GeorgeLaura    923807   
+1 BarackMichelle 4139965  
+3 BillHillary    20400000   
+4 SarahTodd      166080
+;
+RUN;
+
+DATA incm;
+ INPUT famid inc00 inc01 inc02 inc03 inc04 inc05 inc06;
+DATALINES;
+3 357026 15949819 9466632 7934705 19995915 18056395 15858422 
+1 240505 272759   259394  238327  207647   1655106  983826
+2 894880 811100   856058  822126  784219   735180   765801
+5 421457 3797715  358310  653039  1570557  2343415  448655
+6 92501  87390    136354  103334  99078    68590    54669
+;
+RUN;
+
+PROC SORT DATA=pres;
+ BY famid;
+RUN;
+
+PROC SORT DATA=incm;
+ BY famid;
+RUN;
+
+DATA pres_incm;
+  MERGE pres(IN=x) incm(IN=y);
+  BY famid;
+  frompres = x;
+  fromincm = y;
+RUN;
+PROC PRINT DATA=pres_incm; 
+RUN; 
+/*all data is shown, even with the holes*/
+/*'x' & 'y' are temporary binary variables:
+    1 = Yes, 0 = No*/
+/*'frompres' & 'fromincm' are permanent*/
+
+/*as before, move "inc07" to the right of "incm06"*/
+
+DATA pres_incm;
+   RETAIN name famid inc00 - inc07;
+   SET pres_incm;
+RUN;
+PROC PRINT DATA=pres_incm; 
+RUN; 
+
+/*how do we eliminate the records with holes?*/
+
+DATA pres_incme;
+  MERGE pres(IN=x) incm(IN=y);
+  BY famid;
+  IF x=1 & y=1; /* gets rid of rows with empty columns */
+RUN;
+DATA pres_incme;
+   RETAIN name famid inc00 - inc07;
+   SET pres_incme;
+RUN;
+PROC PRINT DATA=pres_incme; 
+RUN; 
+
+/*another occasion in which IF can't be replaced by WHERE*,
+   since 'x' & 'y' are temporary variables*/
+
+/*people often rewrite "x=1 & y=1" as simply
+   "x & y" (an expression "var=cnst" has value 1 or 0, 
+    thus the expression "bin_var=1" is the same as bin_var itself)*/
+
+
