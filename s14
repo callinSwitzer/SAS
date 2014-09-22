@@ -1,0 +1,106 @@
+/*Concatenating data files in SAS*/
+/*based on
+   http://www.ats.ucla.edu/stat/SAS/modules/concat.htm
+  plus new data found at
+   http://www.taxhistory.org/www/website.nsf/Web/PresidentialTaxReturns?OpenDocument
+*/
+
+/*LENGTH function used to set storage length
+    of character (string) variable */
+
+/*Here is a file with information about couples with their
+   family ID, income, tax liability and political affiliation*/ 
+DATA pres; 
+  LENGTH name $ 14;    
+  INPUT famid name $ inc07 tax party; 
+CARDS; 
+2 GeorgeLaura    923807   221635  0
+1 BarackMichelle 4139965  1396772 1
+3 BillHillary    20400000 5100000 1
+; 
+RUN; 
+
+/*Here is a file containing more couples with their 
+   family ID, income, tax liability and political affiliation*/
+DATA vice; 
+  LENGTH name $ 14;
+  INPUT famid name $ inc07 tx py $; 
+CARDS; 
+2 DickLynne      3042767  602651  R
+1 JoeJill        319853   66273   D
+; 
+RUN; 
+
+/*We can combine these files by stacking them one on top 
+   of the other by setting them both together in the same 
+   data step as shown below*/
+
+DATA presvice1; 
+  SET pres vice; 
+RUN; 
+
+PROC PRINT DATA=presvice1; 
+RUN;  
+
+/*To concatenate the tax columns, we need to make the
+   variable names 'tax' & 'tx' consistent*/
+/*Obvious solution: edit one of the INPUT statements!*/
+/*But the challenge is still worth meeting: with 'pres' & 'vice'
+   files as given, how do we change 'tx' to 'tax'?*/
+
+DATA presvice2;
+  SET pres vice (RENAME=(tx=tax));
+RUN;
+
+PROC PRINT DATA=presvice2;
+RUN;
+
+/*To concatenate the political-affiliation columns, try likewise*/
+
+DATA presvice3;
+  SET pres vice (RENAME=(py=party));
+RUN;
+
+/*Because of the collision between numeric & character types,
+   the new dataset "presvice3" is still empty*/
+/*Must automatically change more than just the name 'py'!*/
+
+DATA vice10;
+ SET vice;
+ IF py="D" THEN party=1;
+ ELSE IF py="R" THEN party=0;
+ DROP py;
+RUN;
+
+DATA presvice3;
+   SET pres vice10 (RENAME=(tx=tax));
+RUN;
+
+PROC PRINT DATA=presvice3;
+RUN;
+
+/*Or do the other way around!*/
+
+DATA presRD;
+ SET pres;
+ IF party=1 THEN py="D";
+ ELSE IF party=0 THEN py="R";
+ DROP party;
+RUN;
+
+DATA presvice4;
+   SET presRD vice (RENAME=(tx=tax));
+RUN;
+
+PROC PRINT DATA=presvice4;
+RUN;
+
+DATA presvice4;
+   SET presvice4 (RENAME=(py=party));     /*'party' is preferred name*/
+RUN;
+PROC PRINT DATA=presvice4;
+RUN;
+
+/*concatenation is what Cody & Smith call "combining similar 
+   data from multiple SAS data sets" (pp. 405-406)*/
+
