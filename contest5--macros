@@ -1,0 +1,81 @@
+DATA gun;
+DO n=1 TO 10;
+   RETAIN seed 45;
+   x1=RANNOR(seed)*1-0.1;
+   x2=RANNOR(seed)*1+0.1;
+   x3=RANNOR(seed)*1-0.2;
+   x4=RANNOR(seed)*1+0.2;
+   x5=RANNOR(seed)*1-0.3;
+   x6=RANNOR(seed)*1+0.3;
+   x7=RANNOR(seed)*1-0.4;
+   x8=RANNOR(seed)*1+0.4;
+   x9=RANNOR(seed)*1-0.5;
+   x10=RANNOR(seed)*1+0.5;
+   x11=RANNOR(seed)*1-0.6;
+   x12=RANNOR(seed)*1+0.6;
+   OUTPUT;
+END;
+RUN;
+
+/*put statistics in a new SAS data file, one variable at a time*/
+/*define a macro to do this*/
+%MACRO FINCH(vrbl);
+PROC MEANS DATA=gun NOPRINT;
+   VAR &vrbl;
+   OUTPUT OUT=tmp N=N
+                                 MIN=MIN
+                                 MAX=MAX
+                                 MEAN=MEAN
+                                 STD=STD
+                                 MEDIAN=MEDIAN
+                                 RANGE=RANGE;
+RUN;
+DATA &vrbl;
+   SET tmp;
+   LENGTH _NAME_ $3;
+   CALL VNAME(&vrbl,_NAME_);
+   LABEL N='N'
+             MIN='MIN'
+             MAX='MAX'
+             MEAN='MEAN'
+             STD='STD'
+             MEDIAN='MEDIAN'
+             RANGE='RANGE'
+			 _NAME_='VARIABLE';
+RUN;
+DATA &vrbl (DROP=_TYPE_ _FREQ_ N &vrbl);
+   RETAIN _NAME_;
+   SET &vrbl;
+RUN;
+QUIT;
+%MEND FINCH;
+
+%MACRO STEVE(all_vars);
+  %LET k=1;
+  %LET var = %SCAN(&all_vars, &k);
+  %DO %WHILE("&var" ~= "");
+         %FINCH(&var);   
+         %LET k = %EVAL(&k + 1);
+         %LET var = %SCAN(&all_vars, &k);
+  %END; 
+%MEND STEVE;
+
+%STEVE(x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12);
+
+/*concatenate the twelve files*/
+DATA gun1;
+   SET x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12;
+   LABEL _NAME_='VARIABLE';
+RUN;
+/*no need to switch around rows and columns: skip transposition*/
+
+/*export this file to Excel (managers love Excel!)*/
+PROC EXPORT DATA= WORK.GUN1 
+            OUTFILE= "C:\Users\sfinch\Desktop\TEMP\gun_2.xls" 
+            DBMS=EXCELCS LABEL REPLACE;
+     SHEET="fun"; 
+RUN;
+
+
+
+
