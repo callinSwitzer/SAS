@@ -1,0 +1,113 @@
+/* SAS Support Site: How to Transpose a Data Set */
+/* http://support.sas.com/sassamples/bitsandbytes/transpose.html */
+/* no longer available: see W2N.pdf & N2W.pdf  instead */
+PROC IMPORT OUT= WORK.wide 
+            DATAFILE= "C:\Users\cswitzer\Desktop\wide.xls" 
+            DBMS=EXCELCS REPLACE;
+     RANGE="wide"; 
+     SCANTEXT=YES;
+     USEDATE=YES;
+     SCANTIME=YES;
+RUN;
+
+PROC PRINT DATA=wide;
+   TITLE 'Original "Wide" Data Set';
+RUN;
+
+/*advantage to wide: easy to invoke PROC MEANS
+ (average of each column)*/
+
+PROC MEANS DATA=wide MAXDEC=2;
+   VAR books cards periodicals;
+RUN;
+
+/*default TRANSPOSE turns every var into an obs 
+ (unless var is of character type)*/
+
+/*at first, wide becomes wider!*/
+
+PROC TRANSPOSE DATA=wide OUT=narrow1 (DROP=_LABEL_);
+RUN;
+PROC PRINT DATA=narrow1;
+   TITLE 'Default Transposition';
+RUN;
+
+/*transposing only the vars Books, Cards, and Periodicals
+ (leaving out Date var for now)*/
+/*note also the _NAME_ var, which we'd like to rename*/ 
+
+/*in VIEWTABLE, can see _NAME_ variable by right mouse click
+  and then selecting Column Attributes*/
+
+PROC TRANSPOSE DATA=wide OUT=narrow2 (DROP=_LABEL_);
+   VAR Books Cards Periodicals;
+RUN;
+PROC PRINT DATA=narrow2;
+   TITLE 'Transposition with VAR Statement';
+RUN;
+
+/*use date values to control how obs are created*/
+/*BY Date will put all sales into COL1, which we'll rename*/
+
+PROC TRANSPOSE DATA=wide OUT=narrow3 
+   (DROP=_LABEL_ RENAME=(_NAME_=MerchType COL1=Sales));
+   VAR Books Cards Periodicals;
+   BY Date;
+RUN;
+DATA narrow3;
+   SET narrow3;
+   LABEL MerchType='Merchandise Type' Sales='Bookstore Sales';
+RUN;   
+PROC PRINT DATA=narrow3 LABEL;
+   TITLE 'Transposition with VAR and BY Statements';
+RUN;
+
+/*at last the dataset is narrow!*/
+
+/*advantage to narrow3: easy to draw bar charts
+(one bar for each type of merchandise)*/
+
+PROC GCHART DATA=narrow3;
+  VBAR MerchType / SUMVAR=Sales TYPE=MEAN;
+  TITLE 'Average Daily Receipts';
+RUN;
+QUIT;
+
+/*see pp. 45-58, Cody & Smith (VBAR means "vertical bar")*/
+/*same info as in earlier PROC MEANS, but different file structure*/
+
+/*can we go the other way? start with narrow and get wide?*/
+
+PROC TRANSPOSE DATA=narrow3 OUT=wide1;
+   VAR sales;
+   BY DATE;
+RUN;
+PROC PRINT DATA=wide1;
+   TITLE 'Return Transposition with BY & VAR Statements';
+RUN;
+
+PROC TRANSPOSE DATA=narrow3 OUT=wide2 (DROP=_NAME_ _LABEL_);
+   VAR sales;
+   BY DATE;
+RUN;
+PROC PRINT DATA=wide2;
+   TITLE 'Add DROP= to Output';
+RUN;
+
+PROC TRANSPOSE DATA=narrow3 OUT=wide3 (DROP=_NAME_ _LABEL_);
+   VAR sales;
+   BY DATE;
+   ID MerchType;
+RUN;
+PROC PRINT DATA=wide3;
+   TITLE 'Use ID Statement to Name COL1, COL2, COL3';
+RUN;
+
+/*values of variables (values of MerchType) in the ID statement 
+   become the names of the new variables in the transposed 
+   data set (Books, Cards, Periodicals)*/
+
+/*we're right back where we started*/
+
+
+
