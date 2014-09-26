@@ -1,0 +1,67 @@
+LIBNAME x "C:\Users\cswitzer\Desktop\patients";
+LIBNAME y "C:\Users\cswitzer\Desktop\health";
+LIBNAME z "C:\Users\cswitzer\Desktop\insurance";
+
+PROC CONTENTS DATA=x.demog VARNUM;
+RUN;
+PROC CONTENTS DATA=y.medvis VARNUM;
+RUN;
+PROC CONTENTS DATA=z.kinds VARNUM;
+RUN;
+
+PROC PRINT DATA=y.medvis;         /*print just the second of these*/
+RUN;
+
+/* y.medvis sorted by mvdate, not by patid */
+/* also must change patid to clientid */
+/* must fix both before merging all files by clientid */
+
+DATA y.mvs;
+   RENAME patid=clientid;
+   LABEL patid="clientid";
+   SET y.medvis;
+RUN;
+PROC SORT DATA=y.mvs; 
+   BY clientid;
+RUN;
+DATA total (KEEP=clientid dob mvtype noinsr);  /*only want a few variables...*/
+   MERGE x.demog y.mvs z.kinds;
+   BY clientid;                                /*... and visits in 2006*/
+   IF mvdate<='30OCT2006'D & mvdate>='1JAN2006'D;  
+RUN;
+
+PROC PRINT DATA=total;
+RUN;
+
+/*'where' doesn't work here, but 'if' does*/
+/*Cody&Smith recommended 'where' on pp. 395-6 & 404-5
+  (use seems limited)*/
+
+/*a powerful alternative approach uses SAS' implementation
+   of the Standard Query Language (many facets to this!)
+   for retrieving data from relational databases*/
+
+/*in "joining tables", no prior sorting is needed and we can
+   merge on different variable names!*/
+
+PROC SQL;
+   CREATE TABLE totals AS SELECT
+   a.clientid, a.dob, b.mvtype, c.noinsr
+   FROM x.demog a, y.medvis b,  z.kinds c
+   WHERE a.clientid=b.patid AND b.patid=c.clientid AND
+      b.mvdate<='30OCT2006'D AND b.mvdate>='1JAN2006'D;
+QUIT;
+
+/*PROC SORT isn't required beforehand (note that 
+   we used "y.medvis", not "y.mvs")*/
+/*also nice not to be bothered with renaming vars*/
+/*'quit' at end rather than 'run'; only one semicolon inside*/
+
+PROC PRINT DATA=totals;
+RUN;
+
+/*PROC SQL can sort, subset, merge & summarize 
+   data all at once; it is especially useful when
+   working with multiple large databases*/
+
+
