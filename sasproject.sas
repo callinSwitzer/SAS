@@ -100,3 +100,26 @@ quit;
 
 
 /* merge avg by bee and ...
+
+/* THIS COULD BE HANDY FOR SORTING -- FROM HW0.SAS */
+/*Solution using PROC SQL*/
+
+PROC SQL;
+ CREATE TABLE candy_choose AS
+ SELECT * 
+ FROM myplace.candy
+ GROUP BY brand
+ HAVING COUNT(brand)>2;
+QUIT;
+
+/*the asterick means that we select all the variables*/
+
+/*how do we obtain the brand frequencies (as done for both PROC FREQ & PROC MEANS)?*/
+
+PROC SQL;
+ CREATE TABLE numbers AS
+ SELECT brand, COUNT(brand) AS brand_count
+ FROM myplace.candy
+ GROUP BY brand;
+QUIT;
+
