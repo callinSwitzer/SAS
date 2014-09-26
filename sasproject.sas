@@ -15,18 +15,25 @@ PROC IMPORT DATAFILE = "C:\USERS\CSWITZER\DESKTOP\Buzzes_2014_08_29.csv"
 	GETNAMES = YES;
 RUN; 
 
+
 /* DROP ROWS WHERE TEMP = NA */
 DATA CLEANBUZZ;
 	SET BUZZ;
 	IF ABSBUZZFREQ = "NA" THEN DELETE;
+	/* convert get date only */
+	date1 = DATEPART(datetIME); 
+	FORMAT DATE1 MMDDYY10.;
 RUN; 
+
+PROC CONTENTS; 
+RUN;
 
 /* HERE ARE THE QUESETIONS FOR ANALYSIS
 I. Are bees' buzz frequencies associated with variables 
 temp, time of day, humidity, or bee size?
 	1. Multiple regression to see if buzz freq is correlated with 
 	any of the environmental variables.
-		a. Make sure to use the average buzz freq for each bee
+		a. Make sure to first buzz freq for each bee
 		b. Calculate the avg buzz freq BY beeNum
 II. Do bees' buzz frequencies change when they pollinate different
 plants?
@@ -37,31 +44,59 @@ plants?
 III. Do bees' buzz frequencies change over time?
 	1. Not quite sure how to analyze this. */
 
-/* create new dataset that is just the average of each bee's buzzes*/
+/* create new dataset has numeric, rather than character values*/
 DATA AVGBEE;
-	SET CLEANBUZZ (KEEP= BEENUM ABSBUZZFREQ);
+	SET CLEANBUZZ;
 	AvgBuzzFreq = absbuzzfreq*1; /* CONVERT TO NUMERIC*/
 	BEEN = BEENUM*1;
-	DROP ABSBUZZFREQ BEENUM;
-RUN; 
+	TEMP1 = TEMP*1;
+	HUM1 = HUM*1; 
+	DROP ABSBUZZFREQ BEENUM TEMP HUM;
+RUN;
 
-/* SORT*/
+/* MULTIPLE REGRESSION */
+
+/* get only first observation of each bee for multiple regression */
 PROC SORT DATA = AVGBEE;
 	BY BEEN;
 RUN; 
 
-/* CALCULATE MEAN BUZZ FREQ BY BEE*/
+ data nodups;
+   set avgBee;
+   by been;
+   if first.BEEN then output nodups;
+  run;
+
+*/ RUN MULTIPLE REGRESSION ON nodups */
+
+
+/* SORT*/
+PROC SORT DATA = AVGBEE;
+	BY BEEN DATE1;
+RUN; 
+
+/* CALCULATE MEAN BUZZ FREQ BY BEE AND DATE and plant*/
 PROC MEANS DATA = AVGBEE;
-	CLASS BEEN;
-	VAR AVGBUZZFREQ;
+	CLASS BEEN DATE1 PLANT;
+	VAR AVGBUZZFREQ ;
 	OUTPUT OUT = BEE;
 RUN;
 
+/* get first recording of each bee */
 DATA BEE1;
-	SET BEE (KEEP = AVGBUZZFREQ BEEN _STAT_);
+	SET BEE (KEEP = AVGBUZZFREQ BEEN _STAT_ plant);
 	IF _STAT_ ^= "MEAN" THEN DELETE; 
 	DROP _STAT_;
 	IF BEEN = "." THEN DELETE;
+	IF PLANT = " " THEN DELETE;
 RUN;
+
+ /* get rid of duplicates */
+proc sort data=bee1 nodup out=want1;
+by been;
+quit; 
+
+/* plot;
+
 
 /* merge avg by bee and ...
