@@ -1,0 +1,109 @@
+/* SAS Support Site: How to Transpose a Data Set */
+/* http://support.sas.com/sassamples/bitsandbytes/transpose.html */
+/* no longer available: see W2N.pdf & N2W.pdf instead */
+
+PROC IMPORT OUT= WORK.wide 
+            DATAFILE= "C:\Users\cswitzer\Desktop\wide.xls" 
+            DBMS=EXCELCS REPLACE;
+     RANGE="wide"; 
+     SCANTEXT=YES;
+     USEDATE=YES;
+     SCANTIME=YES;
+RUN;
+
+PROC PRINT DATA=wide;
+   TITLE 'Original "Wide" Data Set';
+RUN;
+
+/*DATA Step (also known as the "Hard Way') is not as easy
+as PROC TRANSPOSE, but is more flexible & gives more control
+(see pp. 432-435 in Cody & Smith)*/
+
+DATA narrow1;
+   SET wide;
+   DROP books cards periodicals;   /*don't worry possible "cards" confusion*/
+   LENGTH MerchType $ 11;
+   MerchType='Books';
+   Sales=books;
+   OUTPUT;
+   MerchType='Cards';
+   Sales=cards;
+   OUTPUT;
+   MerchType='Periodicals';
+   Sales=periodicals;  
+   OUTPUT;
+RUN;
+
+PROC PRINT DATA=narrow1;
+   TITLE 'Straightforward DATA Step Example';
+RUN;
+
+/*if the number of variables increases, then the use of 
+arrays can simplify the code*/
+
+DATA narrow2;
+   SET wide;
+   DROP books cards periodicals i;
+   LENGTH MerchType $ 11;
+   ARRAY Merchandise[3] books cards periodicals;  /*declaring an array: Ch 15*/
+   ARRAY TypeOfMerchandise[3] $ 11 _temporary_ 
+         ('Books' 'Cards' 'Periodicals');
+   DO i=1 TO 3;
+      MerchType=TypeOfMerchandise[i];
+      Sales=Merchandise[i];
+	  OUTPUT;
+   END;
+RUN;
+
+PROC PRINT DATA=narrow2;
+   TITLE 'DATA Step Example Using Arrays';
+RUN;
+
+/*can we go the other way? start with narrow and get wide?*/
+
+DATA wide1 (DROP=MerchType Sales);
+   SET narrow1;   
+   IF MerchType='Books' THEN Books=Sales;
+   ELSE IF MerchType='Cards' THEN Cards=Sales;
+   ELSE IF MerchType='Periodicals' THEN Periodicals=Sales;
+RUN;
+PROC PRINT DATA=wide1;
+   FORMAT date DATE9.;
+   TITLE 'Conditionally Assign Sales to Variables';
+RUN;
+
+/*how to make the three values appear on the same row?*/
+/*remember: new vars are set to missing when SAS reads a new row*/
+/*to change this behavior, use RETAIN*/
+
+DATA wide2 (DROP=MerchType Sales);
+   SET narrow1;   
+   RETAIN Books Cards Periodicals;
+   IF MerchType='Books' THEN Books=Sales;
+   ELSE IF MerchType='Cards' THEN Cards=Sales;
+   ELSE IF MerchType='Periodicals' THEN Periodicals=Sales;
+RUN;
+PROC PRINT DATA=wide2;
+   FORMAT date DATE9.;
+   TITLE 'Retain Values of New Variables';
+RUN;
+
+/*how to get rid of extraneous rows?  think hard!*/
+
+DATA wide3 (DROP=MerchType Sales);
+   SET narrow1;   
+   BY Date;                             /*note this...*/
+   RETAIN Books Cards Periodicals;
+   IF MerchType='Books' THEN Books=Sales;
+   ELSE IF MerchType='Cards' THEN Cards=Sales;
+   ELSE IF MerchType='Periodicals' THEN Periodicals=Sales;
+   IF LAST.Date=1;                      /*...and this*/
+RUN;
+PROC PRINT DATA=wide3;
+   FORMAT date DATE9.;
+   TITLE 'Output only the Last of Each Date Group';
+RUN;
+
+
+
+
