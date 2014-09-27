@@ -107,6 +107,8 @@ PROC SGSCATTER DATA = FIRST;
 RUN;
 ODS HTML CLOSE;
 
+proc contents;
+run; 
 /*II. Do bees' buzz frequencies change when they pollinate different
 plants?
 	1. Start by plotting avg buzz freq by plant (with individual 
@@ -156,19 +158,19 @@ RUN;
 /* CALCULATE MEAN BUZZ FREQ BY BEE AND DATE*/
 PROC MEANS DATA = AVGBEE;
 	CLASS BEEN DATETIME;
-	VAR AVGBUZZFREQ1 ;
+	VAR AVGBUZZFREQ1 HUM1 TEMP1;
 	OUTPUT OUT = BEE;
 RUN;
 
 DATA BEE1;
-	SET BEE (KEEP = AVGBUZZFREQ1 BEEN _STAT_ DATETIME);
+	SET BEE (KEEP = AVGBUZZFREQ1 BEEN _STAT_ DATETIME TEMP1 HUM1);
 	IF _STAT_ ^= "MEAN" THEN DELETE; 
 	DROP _STAT_;
 	IF BEEN = "." THEN DELETE;
 	IF DATETIME = "." THEN DELETE; 
 RUN;
 /* THIS IS GREAT. NOW WE HAVE EACH INDIVIDUAL'S BUZZ FREQUENCY BY DATE*/
-/* MAYBE I SHOULD GET TEMP AND HUMIDITY BY DATE, TOO */
+/* also, avg temp and hum by date */
 
 /* GET DUPLICATES OF BEES */
 data BEE1DUPS;
@@ -183,25 +185,105 @@ proc sort data = BEE1DUPS;
   by BEEN;
 run;
 
+
+*;
+DATA beeDate;
+	set bee1dups;
+	by been;
+	if first.been then firstDate = 1;
+	else firstDate = 0;
+run; 
+
+/* THIS GETS THE DATE DIFFERENCES BETWEEN OBSERVATIONS */
+DATA BEEDATE1;
+	SET BEEDATE;
+	BY BEEN;
+	RETAIN OLD_DATETIME; 
+	IF FIRSTDATE = 1 THEN OLD_DATETIME = DATETIME;
+	F_DATE = OLD_DATETIME;
+	FORMAT F_DATE MMDDYY10.;
+	DATE_DIFF = DATETIME - F_DATE; 
+PROC PRINT; 
+RUN;
+
+
+data BEE1DUPS;
+  set BEE1 ;
+  by been;
+  /* if the bee number is in the dataset more than once, ouput to repSamples */
+  if ~(first.been and last.been) then output BEE1DUPS ;
+
 data BEE1DUPS;
   set BEE1DUPS;
   count + 1;
   by BEEN;
   if first.BEEN then count = 1;
+  /* if count = 3, then delete -- so I can do pairwise testing */
+  if count = 3 then delete; 
+proc print;
+	title "bee1dups"; 
 run;
 
-/* NOW PLOT IT */
 
+/* NOW PLOT IT */
+ODS RTF STYLE = FESTIVAL; 
+PROC SGSCATTER DATA = BEEDATE1;
+	PLOT AVGBUZZFREQ1*DATE_DIFF / GROUP = BEEN reg = (degree = 1 clm);
+	TITLE1 "AVERAGE BUZZ FREQUENCY TIME"; 
+	LABEL DATE_DIFF = "DAY" 
+			BEEn = "Bee Number"
+			AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
+RUN;
+
+PROC PRINT DATA = BEEDATE1; 
+RUN; 
+
+/* DO MULTIPLE REGRESSION -- this doesn't really make sense, b/c of the outliers */
+PROC REG DATA = BEEDATE1; 
+	TITLE "MULTIPLE REGRESSION FOR RECAPTURES";
+	MODEL avgbuzzfreq1  = date_diff; 
+RUN;
+QUIT;
+
+/* multiple regression with count -- also doesn't make sense, since their paired*/
+PROC REG DATA = bee1dups; 
+	TITLE "MULTIPLE REGRESSION FOR RECAPTURES";
+	MODEL avgbuzzfreq1  = count; 
+RUN;
+QUIT;
+
+
+proc glm data=bee1dups;
+  class count;
+  model temp1 hum1 count = avgbuzzfreq1;
+  repeated count 2 / printe;
+run;
+quit;
+
+/* LOOK AT THE POSSIBLE ODS STYLES
+proc template;
+  path sashelp.tmplmst;
+  list styles;
+run;
+*/
+
+
+
+
+
+
+/*
 ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regr.html";
 /* scatterplot of data */
 PROC SGSCATTER DATA = BEE1DUPS;
 	PLOT AVGBUZZFREQ1*COUNT / GROUP = BEEN reg = (degree = 1 clm);
 	TITLE1 "AVERAGE BUZZ FREQUENCY TIME"; 
 	LABEL COUNT = "DAY" 
+			been = "Bee Number"
 			AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
 RUN; 
 ODS HTML CLOSE; 
-
+*/
 
 
 
