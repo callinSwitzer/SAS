@@ -109,12 +109,8 @@ ODS HTML CLOSE;
 
 proc contents;
 run; 
-/*II. Do bees' buzz frequencies change when they pollinate different
-plants?
-	1. Start by plotting avg buzz freq by plant (with individual 
-	bees' buzzes averaged for each plant.
-	2. Plot individual bees' buzz frequency for each plant*/
-
+/*III. Do bees' buzz frequencies change over time?
+	1. Not quite sure how to analyze this. 
 /* get only bees that have multiple recordings */
 
 data repSamples;
@@ -251,14 +247,54 @@ PROC REG DATA = bee1dups;
 	MODEL avgbuzzfreq1  = count; 
 RUN;
 QUIT;
+ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regr.html";
+proc mixed data=bee1dups method=ml;
+	title "Mixed linear model for bees";
+	class been;
+	model avgbuzzfreq1 =  temp1 hum1 count;
+	random  been;
+run;
+ods close; 
 
+/* do same for just count -- should be same as paired ttest */
+ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regr.html";
+proc mixed data=bee1dups method=ml;
+	title "Mixed linear model for bees";
+	class been;
+	model avgbuzzfreq1 = count;
+	random  been;
+run;
+ods close; 
+
+ods graphics on;
+   
+   proc ttest data = bee1dups;
+      paired SBPbefore*SBPafter;
+   run;
+
+/* transpose for a ttest-- just to check results of mixed model */
+proc transpose data = bee1dups out = pairT; 
+	title "ttest setup";
+	var avgbuzzfreq1; 
+    by been;
+data pairT; 
+	set  pairT;
+	drop _NAME_; 
+	label col1 = "Obs 1" col2 = "Obs 2"; 
+proc print; 
+run ;
+
+proc ttest data = pairt; 
+	paired COL1 * COL2; 
+run; 
 
 proc glm data=bee1dups;
   class count;
-  model temp1 hum1 count = avgbuzzfreq1;
+  model avgbuzzfreq1 = temp1 hum1 count;
   repeated count 2 / printe;
 run;
 quit;
+ods html close; 
 
 /* LOOK AT THE POSSIBLE ODS STYLES
 proc template;
@@ -283,20 +319,69 @@ PROC SGSCATTER DATA = BEE1DUPS;
 			AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
 RUN; 
 ODS HTML CLOSE; 
-*/
+
+
+
+/*
+II. Do bees' buzz frequencies change when they pollinate different
+plants?
+	1. Start by plotting avg buzz freq by plant (with individual 
+	bees' buzzes averaged for each plant.
+	2. Plot individual bees' buzz frequency for each plant */
 
 
 
 
 
+/* get avg buzz freq for bees that have buzzed on more than one type of plant */
+data avgbee1; 
+	set avgbee;
+	if location ~= "greenhouse" then delete;  
+
+PROC MEANS DATA = AVGBEE1;
+	CLASS BEEN plant;
+	VAR AVGBUZZFREQ1 HUM1 TEMP1;
+	OUTPUT OUT = BEE2;
+RUN;
+
+DATA BEE2;
+	SET BEE2 (KEEP = AVGBUZZFREQ1 BEEN _STAT_ TEMP1 HUM1 PLANT);
+	IF _STAT_ ^= "MEAN" THEN DELETE; 
+	DROP _STAT_;
+	IF BEEN = "." THEN DELETE;
+	IF PLANT = " " THEN DELETE; 
+PROC PRINT; 
+RUN;
+/* THIS IS GREAT. NOW WE HAVE EACH INDIVIDUAL'S BUZZ FREQUENCY BY PLANT*/
+/* also, avg temp and hum by PLANT */
+
+/* GET DUPLICATES OF BEES -- I ONLY BEES THAT VISITED MORE THAN ONE PLANT */
+data BEE12DUPS;
+  set BEE2 ;
+  by been;
+  /* if the bee number is in the dataset more than once, ouput to repSamples */
+  if ~(first.been and last.been) then output BEE12DUPS ;
+PROC PRINT;
+
+run;
 
 
+/* SCATTERPLOT WITH LINES CONNECTING INDIVIDUALS */
+PROC SGSCATTER DATA = BEE12DUPS;
+	PLOT AVGBUZZFREQ1*PLANT;
+	TITLE1 "AVERAGE BUZZ FREQUENCY VS PLANT"; 
+	LABEL AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
+RUN;
 
+PROC SGSCATTER DATA = BEE12DUPS;
+	PLOT AVGBUZZFREQ1*PLANT / GROUP = BEEN;
+	TITLE1 "AVERAGE BUZZ FREQUENCY TIME"; 
+	LABEL 	been = "Bee Number"
+			AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
+RUN; 
+/* THIS LOOKS OKAY, BUT IT WOULD LOOK BETTER IF WE PLOTTED AFFINE AS A REFERENCE PLANT */
 
-
-
-
-
+/* MAKE A REFERENCE PLANT, AND PLOT DIFFERENCES*/
 
 
 
@@ -337,3 +422,4 @@ quit;
 
 
 /* merge avg by bee and ...
+
