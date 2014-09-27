@@ -424,27 +424,40 @@ DATA BEEPLANT;
 PROC PRINT; 
 RUN;
 
-PROC SGSCATTER DATA = BEEPLANT;
-	PLOT BUZZ_DIFF*PLANT / GROUP = BEEN;
-	TITLE1 "AVERAGE BUZZ FREQUENCY TIME"; 
-	LABEL 	been = "Bee Number"
-			BUZZ_DIFF = "Average buzz frequency difference (Hz)"; 
-RUN; 
-
 PROC SGPLOT DATA = BEEPLANT; 
-	series X = PLANT Y = BUZZ_DIFF/ GROUP = BEEN; 
-	scatter X = PLANT Y = BUZZ_DIFF/ GROUP = BEEN; 
+	series X = PLANT Y = BUZZ_DIFF / group = been; 
+	scatter X = PLANT Y = BUZZ_DIFF / group= been markerchar=been; 
  	REFLINE 0 / TRANSPARENCY = 0.5 
- 	LABEL = ('Exacume affine'); 
+ 	LABEL = ('Average for each bee'); 
  	TITLE 'Average buzz frequency by plant for three different bees'; 
  	LABEL 	been = "Bee Number"
 			BUZZ_DIFF = "Average buzz frequency difference (Hz)"; 
 RUN; 
 
+/* nested anova -- finds significant difference between groups --
+maybe not valid b/c of small sample size 
+also, it doesn't take temp or humidity into account*/
+
+/* first convert beenum to character */
+data beeplant1;
+	set beeplant;
+	Bee = STRIP(PUT(been, 8.));
+run;
+
+PROC GLM DATA=beeplant1;
+       CLASS bee plant;
+       MODEL buzz_diff = bee plant;
+       MEANS plant/TUKEY;
+             TITLE 'Repeated Measures ANOVA on buzzes on different plants';
+RUN;
 
 
-
-
+/* compare with anova  -- this is more significant, as expected*/
+proc anova data = beeplant1; 
+	class plant;
+	model buzz_diff = plant;
+	*means plant/TUKEY;
+run; 
 
 
 
