@@ -382,6 +382,83 @@ RUN;
 /* THIS LOOKS OKAY, BUT IT WOULD LOOK BETTER IF WE PLOTTED AFFINE AS A REFERENCE PLANT */
 
 /* MAKE A REFERENCE PLANT, AND PLOT DIFFERENCES*/
+PROC SORT DATA = BEE12DUPS;
+	BY BEEN PLANT;
+PROC PRINT; 
+RUN; 
+
+DATA BEE12DUPS;
+	set bee12dups;
+	by been;
+	if first.been then firstPLANT = 1;
+	else firstPLANT = 0;
+PROC PRINT; 
+run; 
+
+/* get average by bee, for comparison */
+proc means data = bee12dups; 
+	output out = bea;
+	class been;
+run; 
+
+data bea1;
+	set bea;
+	if been = "." then delete;
+	if _STAT_ ~= "MEAN" then delete;
+	drop _type_ _freq_ _stat_ firstPlant hum1 temp1;
+	av = avgbuzzfreq1;
+proc print; 
+run; 
+
+/*merge the averages back into the dataset */
+DATA beerepavg; 
+  MERGE bea1 bee12dups; 
+  BY been; 
+proc print; 
+RUN; 
+
+/* THIS GETS THE differences between plant observations */
+DATA BEEPLANT;
+	SET beerepavg;
+	BUZZ_DIFF = AVGBUZZFREQ1 - av; 
+PROC PRINT; 
+RUN;
+
+PROC SGSCATTER DATA = BEEPLANT;
+	PLOT BUZZ_DIFF*PLANT / GROUP = BEEN;
+	TITLE1 "AVERAGE BUZZ FREQUENCY TIME"; 
+	LABEL 	been = "Bee Number"
+			BUZZ_DIFF = "Average buzz frequency difference (Hz)"; 
+RUN; 
+
+PROC SGPLOT DATA = BEEPLANT; 
+	series X = PLANT Y = BUZZ_DIFF/ GROUP = BEEN; 
+	scatter X = PLANT Y = BUZZ_DIFF/ GROUP = BEEN; 
+ 	REFLINE 0 / TRANSPARENCY = 0.5 
+ 	LABEL = ('Exacume affine'); 
+ 	TITLE 'Average buzz frequency by plant for three different bees'; 
+ 	LABEL 	been = "Bee Number"
+			BUZZ_DIFF = "Average buzz frequency difference (Hz)"; 
+RUN; 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -422,4 +499,3 @@ quit;
 
 
 /* merge avg by bee and ...
-
