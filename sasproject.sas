@@ -26,12 +26,14 @@ DATA buzz;
 	FORMAT DATE MMDDYY10.;
 RUN; 
 
+*;
 PROC CONTENTS; 
 RUN;
+*;
 
 /* HERE ARE THE QUESETIONS FOR ANALYSIS
 I. Are bees' buzz frequencies associated with variables 
-temp, time of day, humidity, or bee size?
+temp, time of day, humidity?
 	1. Multiple regression to see if buzz freq is correlated with 
 	any of the environmental variables.
 		a. Make sure to first buzz freq for each bee
@@ -48,56 +50,61 @@ III. Do bees' buzz frequencies change over time?
 DATA AVGBEE;
 	SET BUZZ;
 	AvgBuzzFreq1 = avgbuzzfreq*1; /* CONVERT TO NUMERIC*/
-	BEEN = BEENUM*1;
-	TEMP1 = TEMP*1;
-	HUM1 = HUM*1; 
-	IT1 = IT*1; 
+	BEEN = BEENUM*1; 	/* Convert to numeric -- just another name for bee number */
+	TEMP1 = TEMP*1; 	/* CONVERT TO NUMERIC*/
+	HUM1 = HUM*1; 		/* CONVERT TO NUMERIC*/
+	IT1 = IT*1; 		/* CONVERT TO NUMERIC*/
+	/* drop unused variables */
 	DROP AvgBUZZFREQ BEENUM TEMP HUM NOTES RecordingNAMES IT tag_description;
 RUN;
+
+/* sort data set */
 PROC SORT DATA = AVGBEE;
 	BY BEEN DateTime;
 RUN; 
 
-
+*;
 proc contents varnum;
 run;
+*; 
 
 /* MULTIPLE REGRESSION */
 
 /* get only first observation of each bee for multiple regression
    and look at only the bees that are pollinating on tomatoes */
 DATA first;
-	set avgbee;
+	SET avgbee;
 	by been;
 	if first.been;
 	IF plant ~= "tomato" THEN DELETE;
 	Drop absbuzzfreq recapture heldatconstdist channelrecorded;
-run;
+RUN;
 /* RUN MULTIPLE REGRESSION ON first encounter of bee */
-ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regrr.html";
+ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="reg.html";
 PROC REG DATA = FIRST;
 	TITLE "Multiple regression to determine what affects buzz freq";
-	MODEL avgBuzzFreq1 = TEMP1 HUM1 / vif;
+	MODEL avgBuzzFreq1 = TEMP1 HUM1 / vif; /* look at variance inflation factor */
+	/* when vif is high, that's problematic */
 RUN;
 QUIT;
 
+*;
 PROC REG DATA = FIRST;
 	TITLE "look at temp vs humidity";
 	MODEL TEMP1= HUM1;
 RUN;
 QUIT;
-ODS HTML CLOSE;
+*;
 
-ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regrr.html";
+*;
 proc sgscatter data=first;
   title "Scatterplot Matrix for bees";
   matrix aVGbuzzfreq1 temp1 hum1 it1 / DIAGONAL = (HISTOGRAM KERNEL NORMAL);
 run;
-ODS HTML CLOSE; 
+*;
 
 
 /* MAKE SOME SCATTERPLOTS */
-ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regr.html";
 PROC SGSCATTER DATA = FIRST;
 	PLOT AVGBUZZFREQ1*TEMP1 /  reg = (degree = 1 clm);
 	TITLE1 "AVERAGE BUZZ FREQUENCY VS TEMP"; 
@@ -105,196 +112,194 @@ PROC SGSCATTER DATA = FIRST;
 	LABEL TEMP1 = "Temperature (deg C)" 
 			AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
 RUN;
-ODS HTML CLOSE;
 
+*;
 proc contents;
-run; 
+run;
+*;
+ 
 /*III. Do bees' buzz frequencies change over time?
-	1. Not quite sure how to analyze this. 
 /* get only bees that have multiple recordings */
 
-data repSamples;
-  set avgbee ;
-  by been LOCATION;
+DATA repSamples;
+  SET avgbee ;
+  BY been location;
   /* if the bee number is in the dataset more than once, ouput to repSamples */
-  if ~(first.been and last.been) then output repSamples ;
-run;
+  IF ~(first.been and last.been) THEN OUTPUT repSamples ;
+RUN;
 
 /* AVERAGE RESAMPLES BY DATE */
 /* SORT*/
-PROC SORT DATA = RESAMPLES;
-	BY BEEN DATETIME;
+PROC SORT DATA = repsamples;
+	BY been dateTime;
 
 /* CALCULATE MEAN BUZZ FREQ BY BEE AND DATE and plant*/
-PROC MEANS DATA = AVGBEE;
-	CLASS BEEN DATETIME PLANT;
-	VAR AVGBUZZFREQ1 ;
-	OUTPUT OUT = BEE;
+PROC MEANS DATA = avgbee;
+	CLASS been dateTime plant;
+	VAR avgbuzzfreq1;
+	OUTPUT OUT = bee;
 RUN;
 
-DATA BEE1;
-	SET BEE (KEEP = AVGBUZZFREQ1 BEEN _STAT_ plant DATETIME);
+/* clean up data */
+DATA bee1;
+	SET bee (KEEP = avgbuzzfreq1 been _STAT_ plant datetime);
 	IF _STAT_ ^= "MEAN" THEN DELETE; 
 	DROP _STAT_;
-	IF BEEN = "." THEN DELETE;
-	IF PLANT = " " THEN DELETE;
-	IF DATETIME = "." THEN DELETE; 
+	IF been = "." THEN DELETE;
+	IF plant = " " THEN DELETE;
+	IF datetime = "." THEN DELETE; 
 RUN;
 
-
-PROC MEANS DATA = BEE1 MEAN;
-	CLASS DATETIME BEEN;
-	VAR AVGBUZZFREQ1;
+*;
+PROC MEANS DATA = bee1 MEAN;
+	CLASS datetime been;
+	VAR avgbuzzfreq1;
 	OUTPUT OUT = bbbb;
 RUN; 
-
+*;
 
 
 
 /* CALCULATE MEAN BUZZ FREQ BY BEE AND DATE*/
-PROC MEANS DATA = AVGBEE;
-	CLASS BEEN DATETIME;
-	VAR AVGBUZZFREQ1 HUM1 TEMP1;
-	OUTPUT OUT = BEE;
+PROC MEANS DATA = avgbee;
+	CLASS been datetime;
+	VAR avgbuzzfreq1 hum1 temp1;
+	OUTPUT OUT = bee;
 RUN;
 
-DATA BEE1;
-	SET BEE (KEEP = AVGBUZZFREQ1 BEEN _STAT_ DATETIME TEMP1 HUM1);
+/* clean up data set */
+DATA bee1;
+	SET bee (KEEP = avgbuzzfreq1 been _STAT_ datetime temp1 hum1);
 	IF _STAT_ ^= "MEAN" THEN DELETE; 
 	DROP _STAT_;
-	IF BEEN = "." THEN DELETE;
-	IF DATETIME = "." THEN DELETE; 
+	IF been = "." THEN DELETE;
+	IF datetime = "." THEN DELETE; 
 RUN;
 /* THIS IS GREAT. NOW WE HAVE EACH INDIVIDUAL'S BUZZ FREQUENCY BY DATE*/
 /* also, avg temp and hum by date */
 
 /* GET DUPLICATES OF BEES */
-data BEE1DUPS;
-  set BEE1 ;
-  by been;
+DATA bee1dups;
+  SET bee1 ;
+  BY been;
   /* if the bee number is in the dataset more than once, ouput to repSamples */
-  if ~(first.been and last.been) then output BEE1DUPS ;
-run;
+  IF ~(first.been and last.been) THEN OUTPUT bee1dups ;
+RUN;
 
 /* CREATE A COUNT VARIABLE TO KEEP TRACK OF DAY NUMBER -- RIGHT NOW, THESE ARE JUST COUNTS */
-proc sort data = BEE1DUPS;
-  by BEEN;
-run;
+PROC SORT DATA = bee1dups;
+  BY been;
+RUN;
 
 
-*;
+
 DATA beeDate;
-	set bee1dups;
-	by been;
-	if first.been then firstDate = 1;
-	else firstDate = 0;
-run; 
+	SET bee1dups;
+	BY been;
+	IF first.been THEN firstDate = 1;
+	ELSE firstDate = 0;
+RUN; 
 
 /* THIS GETS THE DATE DIFFERENCES BETWEEN OBSERVATIONS */
-DATA BEEDATE1;
-	SET BEEDATE;
-	BY BEEN;
+DATA beedate1;
+	SET beedate;
+	BY been;
 	RETAIN OLD_DATETIME; 
-	IF FIRSTDATE = 1 THEN OLD_DATETIME = DATETIME;
+	IF firstDate = 1 THEN OLD_DATETIME = datetime;
 	F_DATE = OLD_DATETIME;
 	FORMAT F_DATE MMDDYY10.;
-	DATE_DIFF = DATETIME - F_DATE; 
+	DATE_DIFF = datetime - F_DATE; 
 PROC PRINT; 
 RUN;
 
 
-data BEE1DUPS;
-  set BEE1 ;
-  by been;
+DATA bee1dups;
+  SET bee1 ;
+  BY been;
   /* if the bee number is in the dataset more than once, ouput to repSamples */
-  if ~(first.been and last.been) then output BEE1DUPS ;
+  IF ~(first.been and last.been) THEN OUTPUT bee1dups ;
 
-data BEE1DUPS;
-  set BEE1DUPS;
+DATA bee1dups;
+  SET bee1dups;
   count + 1;
-  by BEEN;
-  if first.BEEN then count = 1;
+  BY been;
+  IF first.BEEN THEN count = 1;
   /* if count = 3, then delete -- so I can do pairwise testing */
-  if count = 3 then delete; 
-proc print;
-	title "bee1dups"; 
-run;
+  IF count = 3 THEN DELETE; 
+PROC PRINT;
+	TITLE "dataset for pairwise assessment"; 
+RUN;
 
 
 /* NOW PLOT IT */
-ODS RTF STYLE = FESTIVAL; 
-PROC SGSCATTER DATA = BEEDATE1;
-	PLOT AVGBUZZFREQ1*DATE_DIFF / GROUP = BEEN reg = (degree = 1 clm);
-	TITLE1 "AVERAGE BUZZ FREQUENCY TIME"; 
+PROC SGSCATTER DATA = beedate1;
+	PLOT avgbuzzfreq1*DATE_DIFF / GROUP = been reg = (degree = 1 clm);
+	TITLE1 "Average buzz frequency over time"; 
 	LABEL DATE_DIFF = "DAY" 
-			BEEn = "Bee Number"
-			AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
+			been = "Bee Number"
+			avgbuzzfreq1 = "Average buzz frequency (Hz)";
 RUN;
 
-PROC PRINT DATA = BEEDATE1; 
+/* this looks a little weird, and I think it will be very difficult
+to analyze, so I will analyze with count, rather than date */
+
+PROC PRINT DATA = beedate1; 
 RUN; 
 
+*;
 /* DO MULTIPLE REGRESSION -- this doesn't really make sense, b/c of the outliers */
 PROC REG DATA = BEEDATE1; 
 	TITLE "MULTIPLE REGRESSION FOR RECAPTURES";
 	MODEL avgbuzzfreq1  = date_diff; 
 RUN;
 QUIT;
+*;
 
+*;
 /* multiple regression with count -- also doesn't make sense, since their paired*/
 PROC REG DATA = bee1dups; 
 	TITLE "MULTIPLE REGRESSION FOR RECAPTURES";
 	MODEL avgbuzzfreq1  = count; 
 RUN;
 QUIT;
-ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regr.html";
-proc mixed data=bee1dups method=ml;
-	title "Mixed linear model for bees";
-	class been;
-	model avgbuzzfreq1 =  temp1 hum1 count;
-	random  been;
-run;
-ods close; 
+*;
 
+
+
+/* a mixed effects model will help analyze paired data, while accounting for differences
+in humidity and temperature */
+PROC MIXED DATA=bee1dups METHOD=ml; /* maximum likelihood method for estimating covariance parameters */
+	TITLE "Mixed linear model for bees";
+	CLASS been;
+	MODEL avgbuzzfreq1 =  temp1 hum1 count; /*these are the fixed effects in the model */
+	RANDOM  been; /* This is identifying bee number as a random effect in the model*/
+run;
+
+*;
 /* do same for just count -- should be same as paired ttest */
-ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regr.html";
 proc mixed data=bee1dups method=ml;
 	title "Mixed linear model for bees";
 	class been;
 	model avgbuzzfreq1 = count;
 	random  been;
 run;
-ods close; 
+*;
 
-ods graphics on;
-   
-   proc ttest data = bee1dups;
-      paired SBPbefore*SBPafter;
-   run;
 
+*;
 /* transpose for a ttest-- just to check results of mixed model */
-proc transpose data = bee1dups out = pairT; 
-	title "ttest setup";
-	var avgbuzzfreq1; 
-    by been;
+PROC TRANSPOSE DATA = bee1dups OUT = pairT; 
+	TITLE "ttest setup";
+	VAR avgbuzzfreq1; 
+    BY been;
 data pairT; 
-	set  pairT;
-	drop _NAME_; 
-	label col1 = "Obs 1" col2 = "Obs 2"; 
-proc print; 
-run ;
-
-proc ttest data = pairt; 
-	paired COL1 * COL2; 
-run; 
-
-proc glm data=bee1dups;
-  class count;
-  model avgbuzzfreq1 = temp1 hum1 count;
-  repeated count 2 / printe;
-run;
-quit;
-ods html close; 
+	SET  pairT;
+	DROP _NAME_; 
+	LABEL col1 = "Obs 1" col2 = "Obs 2"; 
+PROC TTEST DATA = pairt; 
+	PAIRED COL1 * COL2; 
+RUN; 
+*;
 
 /* LOOK AT THE POSSIBLE ODS STYLES
 proc template;
@@ -303,23 +308,16 @@ proc template;
 run;
 */
 
-
-
-
-
-
-/*
-ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regr.html";
 /* scatterplot of data */
-PROC SGSCATTER DATA = BEE1DUPS;
-	PLOT AVGBUZZFREQ1*COUNT / GROUP = BEEN reg = (degree = 1 clm);
-	TITLE1 "AVERAGE BUZZ FREQUENCY TIME"; 
-	LABEL COUNT = "DAY" 
+PROC SGPLOT DATA = bee1dups NOAUTOLEGEND;
+	SCATTER	X=count Y= avgbuzzfreq1;
+	SERIES X = count Y = avgbuzzfreq1 / group = been; 
+	XAXIS MIN = 0.9 MAX = 2.1 INTEGER;
+	TITLE1 "Average buzz frequency over time"; 
+	LABEL count = "Observation number" 
 			been = "Bee Number"
-			AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
-RUN; 
-ODS HTML CLOSE; 
-
+			avgbuzzfreq1 = "Average buzz frequency (Hz)";
+RUN;
 
 
 /*
@@ -334,52 +332,45 @@ plants?
 
 
 /* get avg buzz freq for bees that have buzzed on more than one type of plant */
-data avgbee1; 
-	set avgbee;
-	if location ~= "greenhouse" then delete;  
-
-PROC MEANS DATA = AVGBEE1;
-	CLASS BEEN plant;
-	VAR AVGBUZZFREQ1 HUM1 TEMP1;
-	OUTPUT OUT = BEE2;
+DATA avgbee1; 
+	SET avgbee;
+	IF location ~= "greenhouse" THEN DELETE;  
+PROC MEANS DATA = avgbee1;
+	CLASS been plant;
+	VAR avgbuzzfreq1 hum1 temp1;
+	OUTPUT OUT = bee2;
 RUN;
 
-DATA BEE2;
-	SET BEE2 (KEEP = AVGBUZZFREQ1 BEEN _STAT_ TEMP1 HUM1 PLANT);
+DATA bee2;
+	SET bee2 (KEEP = avgbuzzfreq1 been _STAT_ temp1 hum1 plant);
 	IF _STAT_ ^= "MEAN" THEN DELETE; 
 	DROP _STAT_;
-	IF BEEN = "." THEN DELETE;
-	IF PLANT = " " THEN DELETE; 
+	IF been = "." THEN DELETE;
+	IF plant = " " THEN DELETE; 
 PROC PRINT; 
 RUN;
-/* THIS IS GREAT. NOW WE HAVE EACH INDIVIDUAL'S BUZZ FREQUENCY BY PLANT*/
+/* NOW WE HAVE EACH INDIVIDUAL'S BUZZ FREQUENCY BY PLANT*/
 /* also, avg temp and hum by PLANT */
 
 /* GET DUPLICATES OF BEES -- I ONLY BEES THAT VISITED MORE THAN ONE PLANT */
-data BEE12DUPS;
-  set BEE2 ;
-  by been;
+DATA bee12dups;
+  SET bee2 ;
+  BY been;
   /* if the bee number is in the dataset more than once, ouput to repSamples */
-  if ~(first.been and last.been) then output BEE12DUPS ;
+  IF ~(first.been and last.been) then output bee12dups;
 PROC PRINT;
-
-run;
+RUN;
+/* I'm not going to use the humidity and temp in this analysis, but I will use it in the future! */
 
 
 /* SCATTERPLOT WITH LINES CONNECTING INDIVIDUALS */
-PROC SGSCATTER DATA = BEE12DUPS;
-	PLOT AVGBUZZFREQ1*PLANT;
+PROC SGPLOT DATA = bee12dups NOAUTOLEGEND;
+	SCATTER x = plant y=avgbuzzfreq1;
+	Series x= plant y = avgbuzzfreq1 / GROUP = BEEN;
 	TITLE1 "AVERAGE BUZZ FREQUENCY VS PLANT"; 
 	LABEL AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
 RUN;
-
-PROC SGSCATTER DATA = BEE12DUPS;
-	PLOT AVGBUZZFREQ1*PLANT / GROUP = BEEN;
-	TITLE1 "AVERAGE BUZZ FREQUENCY TIME"; 
-	LABEL 	been = "Bee Number"
-			AVGBUZZFREQ1 = "Average buzz frequency (Hz)";
-RUN; 
-/* THIS LOOKS OKAY, BUT IT WOULD LOOK BETTER IF WE PLOTTED AFFINE AS A REFERENCE PLANT */
+/* THIS LOOKS OKAY, BUT IT WOULD LOOK BETTER IF SUBTRACTED EACH BEE'S AVERAGE */
 
 /* MAKE A REFERENCE PLANT, AND PLOT DIFFERENCES*/
 PROC SORT DATA = BEE12DUPS;
@@ -424,166 +415,9 @@ DATA BEEPLANT;
 PROC PRINT; 
 RUN;
 
-PROC SGPLOT DATA = BEEPLANT; 
-	series X = PLANT Y = BUZZ_DIFF / group = been; 
-	scatter X = PLANT Y = BUZZ_DIFF / group= been markerchar=been; 
- 	REFLINE 0 / TRANSPARENCY = 0.5 
- 	LABEL = ('Average for each bee'); 
- 	TITLE 'Average buzz frequency by plant for three different bees'; 
- 	LABEL 	been = "Bee Number"
-			BUZZ_DIFF = "Average buzz frequency difference (Hz)"; 
-RUN; 
-
-/* nested anova -- finds significant difference between groups --
-maybe not valid b/c of small sample size 
-also, it doesn't take temp or humidity into account*/
-
-/* first convert beenum to character */
-data beeplant1;
+/* rename plants to get a nice graph */;
+data bpa;
 	set beeplant;
-	Bee = STRIP(PUT(been, 8.));
-run;
-
-data beeplant2;
-	set beeplant1;
-	if plant = "jalapeno" then delete;
-proc print;
-run; 
-
-ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regr.html";
-PROC GLM DATA=beeplant1;
-       CLASS bee plant;
-       MODEL avgbuzzfreq1 = bee plant;
-       *MEANS plant/TUKEY;
-             TITLE 'Repeated Measures ANOVA on buzzes on different plants';
-RUN;
-/* this is the right way */
-PROC anova DATA=beeplant2;
-       CLASS bee plant;
-       MODEL buzz_diff = bee plant;
-       MEANS plant/snk;
-             TITLE 'Repeated Measures ANOVA on buzzes on different plants';
-RUN;
-
-/* this is not the right way */
-PROC anova DATA=beeplant1;
-       CLASS bee plant;
-       MODEL avgbuzzfreq1 = bee plant;
-       MEANS plant/snk;
-             TITLE 'Repeated Measures ANOVA on buzzes on different plants';
-RUN;
-
-proc print data=beeplant1;
-run; 
-
-data bb;
-	set beeplant;
-	drop av hum1 temp1 firstplant buzz_diff bee;
-proc print;
-run;
-
-/* get data in correct form for repeated measures anova */
-proc transpose data = beeplant1 out = bpt; 
-	title "anova setup";
-	var avgbuzzfreq1; 
-	ID PLANT;
-	by been;
-data bpt; 
-	set  bpt;
-	drop _NAME_; 
-	*label col1 = "Obs 1" col2 = "Obs 2"; 
-proc print; 
-run ;
-
-/* this is really close */
-/* let's just try entering data manually */
-
-/* now repeated measures anova -- this is right */
-proc anova data = bpt;
-	title "One-way Anova, using REPEATED measures";
-	model AFFINE CAROLINENSE DULCAMARA = / nouni;
-	repeated buzz 3 (1 2 3 );
-run; 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* SORT*/
-PROC SORT DATA = AVGBEE;
-	BY BEEN DATE1;
-RUN; 
-
-/* CALCULATE MEAN BUZZ FREQ BY BEE AND DATE and plant*/
-PROC MEANS DATA = AVGBEE;
-	CLASS BEEN DATE1 PLANT;
-	VAR AVGBUZZFREQ ;
-	OUTPUT OUT = BEE;
-RUN;
-
-/* get first recording of each bee */
-DATA BEE1;
-	SET BEE (KEEP = AVGBUZZFREQ1 BEEN _STAT_ plant DATETIME);
-	IF _STAT_ ^= "MEAN" THEN DELETE; 
-	DROP _STAT_;
-	IF BEEN = "." THEN DELETE;
-	IF PLANT = " " THEN DELETE;
-RUN;
-
- /* get rid of duplicates */
-proc sort data=bee1 nodup out=want1;
-by been;
-quit; 
-
-/* plot;
-
-* test problems from ch.8 */
-
-data pain;
-	subj + 1; 
-	do drug = 1 to 4;
-		input pain @;
-		output;
-	end; 
-datalines;
-5	9	6	11
-7	12	.	9
-11	12	10	14
-3	8	5	8
-;
-
-proc print;
-run; 
-
-proc anova data = pain;
-	class subj drug; 
-	model pain = subj drug;
-	means drug / snk;
-run; 
-
-/* recode plant to be a number */
-
-data bp3;
-	set beeplant1;
 	if plant = "affine" then plantNum = 1;
 	else if plant = "carolinense" then plantNum = 2 ;
 	else if plant = 'dulcamara' then plantNum = 3 ;
@@ -597,7 +431,104 @@ data bp3;
 proc print; 
 run; 
 
-/* now do anova -- I think this is right*/
+/* make a nice graph */
+PROC SGPLOT DATA = bpa NOAUTOLEGEND;
+	SCATTER x = name y=BUZZ_DIFF;
+	Series x= name y = BUZZ_DIFF / GROUP = BEEN;
+	REFLINE 0 / TRANSPARENCY = 0.5 LABEL = ('Average for each bee');
+	TITLE 'Average buzz frequency by plant for three different bees'; 
+ 	LABEL 	been = "Bee Number"
+			BUZZ_DIFF = "Average buzz frequency difference (Hz)"
+			name = "Common plant name";
+RUN;
+
+/* nested anova -- finds significant difference between groups --
+maybe not valid b/c of small sample size 
+also, it doesn't take temp or humidity into account*/
+
+/* first convert beenum to character */
+/*
+data beeplant1;
+	set beeplant;
+	Bee = STRIP(PUT(been, 8.));
+run;
+*/
+
+/* get rid of jalapeno, since I have only one observation */
+DATA beeplant2;
+	SET beeplant;
+	IF plant = "jalapeno" THEN DELETE;
+PROC PRINT;
+RUN;
+
+/* One way to do anova 
+PROC GLM DATA=beeplant1;
+       CLASS bee plant;
+       MODEL avgbuzzfreq1 = bee plant;
+       *MEANS plant/TUKEY;
+             TITLE 'Repeated Measures ANOVA on buzzes on different plants';
+RUN;
+*/
+
+/* this is the right way, if wer didn't have repeated measures -- this assumes been and plant are independent */
+PROC anova DATA=beeplant2;
+       CLASS been plant;
+       MODEL buzz_diff = been plant;
+       MEANS plant/snk; /* Student-Newman-Keuls Test to find differences among groups */
+             TITLE 'Repeated Measures ANOVA on buzzes on different plants';
+RUN;
+
+/* CLEANUP */
+DATA bb;
+	SET beeplant;
+	DROP av hum1 temp1 firstplant buzz_diff bee;
+	TITLE "Cleaned up data -- bb"
+PROC PRINT;
+RUN;
+
+/* get data in correct form for repeated measures anova --
+transpose to wide format and clean it upa a bit*/
+PROC TRANSPOSE DATA = beeplant OUT = bpt; 
+	TITLE "Wide format for repreated measures ANOVA";
+	VAR avgbuzzfreq1; 
+	ID plant;
+	BY been;
+DATA bpt; 
+	SET  bpt;
+	DROP _NAME_; 
+PROC PRINT;
+RUN;
+
+/* now repeated measures anova -- this is the correct way to analyze this data
+Assuming: there is no strong effect of temp humidity or time (those variables are left out)
+Also future work will need larger sample sizes.
+*/
+PROC ANOVA DATA = bpt;
+	TITLE "One-way Anova, using repeated measures";
+	MODEL AFFINE CAROLINENSE DULCAMARA = / NOUNI;
+	REPEATED buzz 3 (1 2 3 );
+RUN; 
+
+/* This is correct */
+
+/* recode plant to be a number */
+
+data bp3;
+	set beeplant;
+	if plant = "affine" then plantNum = 1;
+	else if plant = "carolinense" then plantNum = 2 ;
+	else if plant = 'dulcamara' then plantNum = 3 ;
+	else plantNum = '.' ;
+
+	/* RENAME PLANTS */
+	if plant = "affine" THEN name = "Persian Violet";
+	else if plant = "carolinense" then name = "Horsenettle";
+	else if plant = 'dulcamara' then name = "Nightshade";
+	else name = "Jalapeño";
+proc print; 
+run; 
+
+/* now do anova -- this is not a repeated measures anova*/
 proc anova data = bp3;
 	class been name;
 	model avgBuzzfreq1 = been name;
@@ -610,18 +541,17 @@ proc sort data = bp3;
 run;
 
 
-proc sgplot data = bp3;
-	vbox avgbuzzfreq1 / category=name  transparency = 0.6 FILLATTRS= (COLOR= lightred) GROUPORDER= data;
-	*scatter y=AVGBUZZFREQ1 x=name;
+PROC SGPLOT DATA = bp3;
+	VBOX avgbuzzfreq1 / CATEGORY=name GROUPORDER= data;
  	TITLE 'Average buzz frequency by plant for three different bees'; 
  	LABEL 	name = "Plant Name"
 			avgbuzzfreq1 = "Average buzz frequency(Hz)"; 
-run; 
+RUN; 
 
-* try to connect with lines ;
-PROC SGPLOT DATA = bp3; 
-	series X = name Y = BUZZ_DIFF / group = been; 
-	scatter X = name Y = BUZZ_DIFF / group= been markerchar=been; 
+* connect the dots with lines;
+PROC SGPLOT DATA = bp3 NOAUTOLEGEND; /* puts no legend in the plot */
+	SERIES X = name Y = BUZZ_DIFF / GROUP = been; 
+	SCATTER X = name Y = BUZZ_DIFF / GROUP= been; 
  	REFLINE 0 / TRANSPARENCY = 0.5 
  	LABEL = ('Average for each bee'); 
  	TITLE 'Average buzz frequency by plant for three different bees'; 
@@ -631,12 +561,12 @@ RUN;
 /* repeated measures anova == correct  */
 
 
-
-proc print data = bpt1;
+/* This is the same as above 
+proc print data = bpt;
 run; 
 
-proc anova data = bpt1;
-	model plant1-plant3 = /nouni;
+proc anova data = bpT;
+	model affine carolinense dulcamara  = /nouni;
 	repeated buzz 3 (1 2 3);
 run; 
-/* different p-value b/c of missing data */
+*/
