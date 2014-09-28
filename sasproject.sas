@@ -585,38 +585,51 @@ run;
 data bp3;
 	set beeplant1;
 	if plant = "affine" then plantNum = 1;
-	else if plant = "carolinense" then plantNum = 2;
-	else if plant = 'dulcamara' then plantNum = 3;
-	else plantNum = '.';
+	else if plant = "carolinense" then plantNum = 2 ;
+	else if plant = 'dulcamara' then plantNum = 3 ;
+	else plantNum = '.' ;
+
+	/* RENAME PLANTS */
+	if plant = "affine" THEN name = "Persian Violet";
+	else if plant = "carolinense" then name = "Horsenettle";
+	else if plant = 'dulcamara' then name = "Nightshade";
+	else name = "Jalapeño";
 proc print; 
 run; 
 
 /* now do anova -- I think this is right*/
 proc anova data = bp3;
-	class been plantNum;
-	model avgBuzzfreq1 = been plantNum;
-	means plantNum / snk;
+	class been name;
+	model avgBuzzfreq1 = been name;
+	means NAME / snk;
+run;
+
+/* boxplots */
+proc sort data = bp3;
+	by name;
 run;
 
 
-
-/* repeated measures example from book  */
-data repeat1;
-	input subj pain1-pain4;
-datalines;
-1	5	9	6	11
-2	7	12	.	9
-3	11	12	10	14
-4	3	8	5	8
-;
-
-proc print;
+proc sgplot data = bp3;
+	vbox avgbuzzfreq1 / category=name  transparency = 0.6 FILLATTRS= (COLOR= lightred) GROUPORDER= data;
+	*scatter y=AVGBUZZFREQ1 x=name;
+ 	TITLE 'Average buzz frequency by plant for three different bees'; 
+ 	LABEL 	name = "Plant Name"
+			avgbuzzfreq1 = "Average buzz frequency(Hz)"; 
 run; 
 
-proc anova data = repeat1;
-	model pain1-pain4 = / nouni;
-	repeated drug 4 (1 2 3 4);
-run; 
+* try to connect with lines ;
+PROC SGPLOT DATA = bp3; 
+	series X = name Y = BUZZ_DIFF / group = been; 
+	scatter X = name Y = BUZZ_DIFF / group= been markerchar=been; 
+ 	REFLINE 0 / TRANSPARENCY = 0.5 
+ 	LABEL = ('Average for each bee'); 
+ 	TITLE 'Average buzz frequency by plant for three different bees'; 
+ 	LABEL 	been = "Bee Number"
+			BUZZ_DIFF = "Average buzz frequency difference (Hz)"; 
+RUN; 
+/* repeated measures anova == correct  */
+
 
 
 proc print data = bpt1;
@@ -627,32 +640,3 @@ proc anova data = bpt1;
 	repeated buzz 3 (1 2 3);
 run; 
 /* different p-value b/c of missing data */
-
-
-* transpose practice;
-
-data fishdata;
-   infile datalines missover;
-   input Location & $10. Date date7.
-         Length1 Weight1 Length2 Weight2 Length3 Weight3
-         Length4 Weight4;
-   format date date7.;
-   datalines;
-Cole Pond   2JUN95 31 .25 32 .3  32 .25 33 .3
-Cole Pond   3JUL95 33 .32 34 .41 37 .48 32 .28
-Cole Pond   4AUG95 29 .23 30 .25 34 .47 32 .3
-Eagle Lake  2JUN95 32 .35 32 .25 33 .30
-Eagle Lake  3JUL95 30 .20 36 .45
-Eagle Lake  4AUG95 33 .30 33 .28 34 .42
-;
-proc print;
-run;
-
-proc transpose data=fishdata
-     out=fishlength(rename=(col1=Measurement));
-   var length1-length4;
-   by location date;
-run;
-proc print data=fishlength noobs;
-   title 'Fish Length Data for Each Location and Date';
-run;
