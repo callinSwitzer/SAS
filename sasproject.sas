@@ -444,19 +444,65 @@ data beeplant1;
 	Bee = STRIP(PUT(been, 8.));
 run;
 
+data beeplant2;
+	set beeplant1;
+	if plant = "jalapeno" then delete;
+proc print;
+run; 
+
+ODS HTML PATH="C:\Users\cswitzer\Desktop\TEMP" BODY="regr.html";
 PROC GLM DATA=beeplant1;
        CLASS bee plant;
+       MODEL avgbuzzfreq1 = bee plant;
+       *MEANS plant/TUKEY;
+             TITLE 'Repeated Measures ANOVA on buzzes on different plants';
+RUN;
+/* this is the right way */
+PROC anova DATA=beeplant2;
+       CLASS bee plant;
        MODEL buzz_diff = bee plant;
-       MEANS plant/TUKEY;
+       MEANS plant/snk;
              TITLE 'Repeated Measures ANOVA on buzzes on different plants';
 RUN;
 
+/* this is not the right way */
+PROC anova DATA=beeplant1;
+       CLASS bee plant;
+       MODEL avgbuzzfreq1 = bee plant;
+       MEANS plant/snk;
+             TITLE 'Repeated Measures ANOVA on buzzes on different plants';
+RUN;
 
-/* compare with anova  -- this is more significant, as expected*/
-proc anova data = beeplant1; 
-	class plant;
-	model buzz_diff = plant;
-	*means plant/TUKEY;
+proc print data=beeplant1;
+run; 
+
+data bb;
+	set beeplant;
+	drop av hum1 temp1 firstplant buzz_diff bee;
+proc print;
+run;
+
+/* get data in correct form for repeated measures anova */
+proc transpose data = beeplant1 out = bpt; 
+	title "anova setup";
+	var avgbuzzfreq1; 
+	ID PLANT;
+	by been;
+data bpt; 
+	set  bpt;
+	drop _NAME_; 
+	*label col1 = "Obs 1" col2 = "Obs 2"; 
+proc print; 
+run ;
+
+/* this is really close */
+/* let's just try entering data manually */
+
+/* now repeated measures anova -- this is right */
+proc anova data = bpt;
+	title "One-way Anova, using REPEATED measures";
+	model AFFINE CAROLINENSE DULCAMARA = / nouni;
+	repeated buzz 3 (1 2 3 );
 run; 
 
 
@@ -510,5 +556,103 @@ quit;
 
 /* plot;
 
+* test problems from ch.8 */
 
-/* merge avg by bee and ...
+data pain;
+	subj + 1; 
+	do drug = 1 to 4;
+		input pain @;
+		output;
+	end; 
+datalines;
+5	9	6	11
+7	12	.	9
+11	12	10	14
+3	8	5	8
+;
+
+proc print;
+run; 
+
+proc anova data = pain;
+	class subj drug; 
+	model pain = subj drug;
+	means drug / snk;
+run; 
+
+/* recode plant to be a number */
+
+data bp3;
+	set beeplant1;
+	if plant = "affine" then plantNum = 1;
+	else if plant = "carolinense" then plantNum = 2;
+	else if plant = 'dulcamara' then plantNum = 3;
+	else plantNum = '.';
+proc print; 
+run; 
+
+/* now do anova -- I think this is right*/
+proc anova data = bp3;
+	class been plantNum;
+	model avgBuzzfreq1 = been plantNum;
+	means plantNum / snk;
+run;
+
+
+
+/* repeated measures example from book  */
+data repeat1;
+	input subj pain1-pain4;
+datalines;
+1	5	9	6	11
+2	7	12	.	9
+3	11	12	10	14
+4	3	8	5	8
+;
+
+proc print;
+run; 
+
+proc anova data = repeat1;
+	model pain1-pain4 = / nouni;
+	repeated drug 4 (1 2 3 4);
+run; 
+
+
+proc print data = bpt1;
+run; 
+
+proc anova data = bpt1;
+	model plant1-plant3 = /nouni;
+	repeated buzz 3 (1 2 3);
+run; 
+/* different p-value b/c of missing data */
+
+
+* transpose practice;
+
+data fishdata;
+   infile datalines missover;
+   input Location & $10. Date date7.
+         Length1 Weight1 Length2 Weight2 Length3 Weight3
+         Length4 Weight4;
+   format date date7.;
+   datalines;
+Cole Pond   2JUN95 31 .25 32 .3  32 .25 33 .3
+Cole Pond   3JUL95 33 .32 34 .41 37 .48 32 .28
+Cole Pond   4AUG95 29 .23 30 .25 34 .47 32 .3
+Eagle Lake  2JUN95 32 .35 32 .25 33 .30
+Eagle Lake  3JUL95 30 .20 36 .45
+Eagle Lake  4AUG95 33 .30 33 .28 34 .42
+;
+proc print;
+run;
+
+proc transpose data=fishdata
+     out=fishlength(rename=(col1=Measurement));
+   var length1-length4;
+   by location date;
+run;
+proc print data=fishlength noobs;
+   title 'Fish Length Data for Each Location and Date';
+run;
